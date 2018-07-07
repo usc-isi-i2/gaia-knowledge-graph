@@ -1,9 +1,21 @@
 import json
+import re
 from rdflib import Graph, URIRef
 from rdflib.namespace import Namespace, RDF, RDFS, SKOS
 
 
 AIDA = Namespace('http://www.isi.edu/aida/interchangeOntology#')
+URI_PATTERN = re.compile(r'((?:^http:|^urn:|^info:|^ftp:|^https:).*/(?:.*#)?)(.*)')
+
+
+def name_process(uri):
+    m = URI_PATTERN.match(uri)
+    if m:
+        prefix, name = m.groups()
+        name = name.replace('.', '_').replace(':', '_')
+        return prefix + name
+    return uri
+
 
 g = Graph().parse("eng.nt", format="nt")
 
@@ -12,6 +24,7 @@ reference = dict()
 # Add all aida:Event and aida:Entity
 for type_ in (AIDA.Event, AIDA.Entity):
     for e in g.subjects(RDF.type, type_):
+        e = name_process(e)
         for d in (entities, reference):
             d[e] = d.get(e, dict())
             d[e][RDF.type] = d[e].get(RDF.type, list())
@@ -30,6 +43,9 @@ statements = g.query(
             ?s rdf:object ?obj .
        }""")
 for s, p, o in statements:
+    s = name_process(s)
+    p = name_process(p)
+    o = name_process(o)
     for d in (entities, reference):
         d[s] = d.get(s, dict())
         d[s][p] = d[s].get(p, list())
@@ -40,18 +56,8 @@ for s, p, o in statements:
         entities[s][p].append(o)
 
 for key in entities:
-    entities[key]["uri"] = key
-    reference[key]["uri"] = key
+    entities[key]["@id"] = key
+    reference[key]["@id"] = key
 
 with open("eng.json", "w") as f:
     f.write(json.dumps(list(entities.values()), indent=2))
-
-# output = Graph()
-# for s, p, o in statements:
-#     output.add((s, p, o))
-# for type_ in (AIDA.Event, AIDA.Entity):
-#     for e in g.subjects(RDF.type, type_):
-#         output.add((e, RDF.type, type_))
-#         for label in g.preferredLabel(e):
-#             output.add((e, *label))
-# output.serialize('eng-ld.json', format='json-ld')
