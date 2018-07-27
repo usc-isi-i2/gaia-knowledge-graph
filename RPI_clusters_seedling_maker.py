@@ -5,64 +5,78 @@ TODO
 """
 import sys
 sys.path.append('/Users/eric/Git/NCC/AIDA-Interchange-Format/python/aida_interchange')
-from rdflib import URIRef, Graph, BNode
-from rdflib.namespace import Namespace, SKOS, RDF
+from rdflib import URIRef, Graph, BNode, Literal
+from rdflib.namespace import SKOS, RDF
 import aifutils
-from SPARQLWrapper import SPARQLWrapper, JSON, POST
+from SPARQLWrapper import SPARQLWrapper, JSON
 from aida_rdf_ontologies import AIDA_ANNOTATION
 import json
-from collections import Counter
-import types
 
 
-super_edge_count_query = """
-PREFIX aida: <http://www.isi.edu/aida/interchangeOntology#>
-SELECT ?cluster1 ?pred ?cluster2 (COUNT(DISTINCT *) AS ?count)
-WHERE {
-  ?membership1 a aida:ClusterMembership ;
-               aida:cluster ?cluster1 ;
-               aida:clusterMember ?e1 .
-  ?membership2 a aida:ClusterMembership ;
-               aida:cluster ?cluster2 ;
-               aida:clusterMember ?e2 .
-  ?e1 a aida:Entity .
-  ?e2 a aida:Entity .
-  ?e1 ?pred ?e2 
-}
-GROUP
-"""
-update_query = """
-INSERT DATA {
-  %s .
-}
-"""
 system = URIRef("http://isi.edu")
-endpoint = "http://localhost:3030/mayank/query"
-update_endpoint = "http://localhost:3030/mayank/update"
-
-
-def add(self, xxx_todo_changeme):
-    Graph.add(self, xxx_todo_changeme)
-    sparql = SPARQLWrapper(update_endpoint)
-    query = update_query % ' '.join(term.n3() for term in xxx_todo_changeme)
-    print(query)
-    sparql.setRequestMethod(POST)
-    sparql.setQuery(query)
-    sparql.setReturnFormat('json')
-    return sparql.query()
-
-
 g = aifutils.make_graph()
-g.load('./files_from_mayank/RPI_clusters_seedling.nt', format='nt')
-g.add = types.MethodType(add, g)
+endpoint = "http://localhost:3030/mayank/query"
+phase_one_input = './files_from_mayank/RPI_clusters_seedling.nt'
+phase_one_output = './files_from_mayank/xij_tmp.nt'
+phase_two_output = './files_from_mayank/xij_output.nt'
+
+
+def phase_one():
+    g.load(phase_one_input, format='nt')
+    clean_out_cluster_inside()
+    with open('./files_from_mayank/RPI_clusters_seedling_same_link_clusters.jl') as f:
+        for ln, line in enumerate(f.readlines()):
+            try:
+                entity_list = json.loads(line)['entities']
+            except json.JSONDecodeError:
+                raise json.JSONDecodeError('Cannot decode line %d: %s'.format(ln, line))
+            except KeyError:
+                raise KeyError('Cannot find key "entities" at line %d: %s'.format(ln, line))
+            # generate a synthetic entity for the most common prefLabel
+            make_cluster(entity_list)
+    g.serialize(phase_one_output, "nt")
+
+
+def phase_two():
+    g.load(phase_one_output, format='nt')
+    # transfer all entity-entity relationships to cluster-cluster SuperEdge
+    transfer_relation_to_cluster(endpoint)
+    g.serialize(phase_two_output, format='nt')
+
+
+def clean_out_cluster_inside():
+    """
+    Inside Mayank's file, he has already defined some cluster that we don't want any more
+    """
+    for sub in g.triples((None, RDF.type, AIDA_ANNOTATION.SameAsCluster)):
+        g.remove((sub, None, None))
 
 
 def make_synthetic_entity(entities):
-    labels = [label[1] for entity in map(URIRef, entities) for label in g.preferredLabel(entity)]
-    common_label = Counter(labels).most_common(1)[0][0]
+    # Find all DatatypeProperties
+    # For each, find the most common value
+    datatypeproperty_copy_query = """
+SELECT ?p ?o (COUNT(?o) AS ?oN)
+WHERE {
+  ?s ?p ?o 
+  FILTER ( ?s IN ( %s ) && isLiteral(?o) )
+}
+GROUP BY ?p ?o"""
+    # DONE {Xi}: copy all DatatypeProperty for  synthetic entity
+    properties = {}
+    for row in query_with_sparqlwrapper(endpoint, datatypeproperty_copy_query % (', '.join(map(URIRef.n3, map(URIRef, entities))))):
+        p = row['p']['value']
+        o = row['o']['value']
+        on = int(row['oN']['value'])
+    # for p, o, on in g.query(datatypeproperty_copy_query):
+        if p in properties:
+            if on <= properties[p][0]:
+                continue
+        properties[p] = (on, o)
     prototype = URIRef(entities[0]+'_prototype')
     aifutils.make_entity(g, prototype, system)
-    g.add((prototype, SKOS.prefLabel, common_label))
+    for p in properties:
+        g.add((prototype, URIRef(p), Literal(properties[p][1])))
     return prototype
 
 
@@ -86,13 +100,25 @@ def make_super_edge(subject, predicate, object_, count):
     return super_edge
 
 
-def transfer_relation_to_cluster():
+def transfer_relation_to_cluster(endpoint):
+    super_edge_count_query = """
+PREFIX aida: <http://darpa.mil/aida/interchangeOntology#>
+SELECT ?cluster1 ?pred ?cluster2 (COUNT(DISTINCT *) AS ?count)
+WHERE {
+  ?e1 a aida:Entity ;
+      aida:inCluster ?cluster1 ;
+      ?pred ?e2 .
+  ?e2 a aida:Entity ;
+      aida:inCluster ?cluster2 .
+}
+GROUP BY ?cluster1 ?pred ?cluster2
+"""
     for row in query_with_sparqlwrapper(endpoint, super_edge_count_query):
         c1 = row['cluster1']['value']
         pred = row['pred']['value']
         c2 = row['cluster2']['value']
         count = row['count']['value']
-        make_super_edge(c1, pred, c2, count)
+        make_super_edge(URIRef(c1), URIRef(pred), URIRef(c2), Literal(count))
 
 
 def query_with_sparqlwrapper(endpoint, query):
@@ -102,19 +128,8 @@ def query_with_sparqlwrapper(endpoint, query):
     return sparql.query().convert()['results']['bindings']
 
 
-
-with open('./files_from_mayank/RPI_clusters_seedling_same_link_clusters.jl') as f:
-    for ln, line in enumerate(f.readlines()):
-        try:
-            entity_list = json.loads(line)['entities']
-        except json.JSONDecodeError:
-            raise json.JSONDecodeError('Cannot decode line %d: %s'.format(ln, line))
-        except KeyError:
-            raise KeyError('Cannot find key "entities" at line %d: %s'.format(ln, line))
-        # generate a synthetic entity for the most common prefLabel
-        make_cluster(entity_list)
-# transfer all entity-entity relationships to cluster-cluster SuperEdge
-transfer_relation_to_cluster()
-
-with open('./file_from_mayank/xij_output.ttl', 'w') as of:
-    g.serialize(of, "ttl")
+# First, run phase one
+# phase_one()
+# input("Load the output into Fuseki, then run phase two. Ready?")
+# Load output into Fuseki, then run phase two
+phase_two()
