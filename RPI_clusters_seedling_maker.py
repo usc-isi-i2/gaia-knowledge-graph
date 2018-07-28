@@ -3,15 +3,15 @@ TODO
 1. deploy mayank's data on server?
 2. change normal query with SPARQL
 """
-import sys
-sys.path.append('/Users/eric/Git/NCC/AIDA-Interchange-Format/python/aida_interchange')
 from rdflib import URIRef, Graph, BNode, Literal
 from rdflib.namespace import SKOS, RDF
-import aifutils
 from SPARQLWrapper import SPARQLWrapper, JSON
-from aida_rdf_ontologies import AIDA_ANNOTATION
 import json
+import sys
 
+sys.path.append('/Users/eric/Git/NCC/AIDA-Interchange-Format/python/aida_interchange')
+import aifutils
+from aida_rdf_ontologies import AIDA_ANNOTATION
 
 system = URIRef("http://isi.edu")
 g = aifutils.make_graph()
@@ -53,6 +53,21 @@ def clean_out_cluster_inside():
 
 
 def make_synthetic_entity(entities):
+    prototype = URIRef(entities[0]+'_prototype')
+    entities_query_set = ', '.join(map(URIRef.n3, map(URIRef, entities)))
+    # DONE {xij} add top two most common type for it
+    type_copy_query = """
+SELECT ?type 
+WHERE {
+  ?s a ?type 
+  FILTER ( ?s IN ( %s ) )
+}
+GROUP BY ?type
+ORDER BY DESC(COUNT ?type)
+LIMIT 2 """ % entities_query_set
+    for row in query_with_sparqlwrapper(endpoint, type_copy_query):
+        type_ = row['type']['value']
+        g.add((prototype, RDF.type, URIRef(type_)))
     # Find all DatatypeProperties
     # For each, find the most common value
     datatypeproperty_copy_query = """
@@ -62,18 +77,16 @@ WHERE {
   FILTER ( ?s IN ( %s ) && isLiteral(?o) )
 }
 GROUP BY ?p ?o"""
-    # DONE {Xi}: copy all DatatypeProperty for  synthetic entity
+    # DONE {Xi}: copy all DatatypeProperty for a synthetic entity
     properties = {}
-    for row in query_with_sparqlwrapper(endpoint, datatypeproperty_copy_query % (', '.join(map(URIRef.n3, map(URIRef, entities))))):
+    for row in query_with_sparqlwrapper(endpoint, datatypeproperty_copy_query):
         p = row['p']['value']
         o = row['o']['value']
         on = int(row['oN']['value'])
-    # for p, o, on in g.query(datatypeproperty_copy_query):
         if p in properties:
             if on <= properties[p][0]:
                 continue
         properties[p] = (on, o)
-    prototype = URIRef(entities[0]+'_prototype')
     aifutils.make_entity(g, prototype, system)
     for p in properties:
         g.add((prototype, URIRef(p), Literal(properties[p][1])))
