@@ -9,11 +9,13 @@ def query_with_wrapper(endpoint, query):
     result = sparql.query().convert()
     vars = result['head']['vars']
     bindings = result['results']['bindings']
-    results = [tuple(resolve(row[var]) for var in vars) for row in bindings]
+    results = [tuple(resolve(row.get(var, None)) for var in vars) for row in bindings]
     return results
 
 
 def resolve(binding):
+    if not binding:
+        return None
     if binding['type'] == 'uri':
         return URIRef(binding['value'])
     elif binding['type'] == 'literal':

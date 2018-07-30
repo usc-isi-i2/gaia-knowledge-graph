@@ -20,27 +20,31 @@ PREFIX aida: <http://darpa.mil/aida/interchangeOntology#>
 PREFIX xij: <http://isi.edu/xij-rule-set#> 
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-SELECT ?cluster ?label (COUNT(?label) AS ?labelN)
+SELECT ?cluster ?label (COUNT(?label) AS ?labelN) (AVG(?value) AS ?avg_conf)
 WHERE {
-  ?cMembership a aida:ClusterMembership ;
-               aida:cluster ?cluster ;
-               aida:clusterMember ?member .
-  ?member skos:prefLabel ?label .
+  ?member xij:inCluster ?cluster ;
+          skos:prefLabel ?label .
+  OPTIONAL {
+    ?statement a rdf:Statement ;
+               rdf:subject ?member ;
+               aida:confidence ?confidence .
+    ?confidence aida:confidenceValue ?value .
+  }
 }
-GROUP BY ?cluster ?label 
-ORDER BY DESC(?labelN) 
+GROUP BY ?cluster ?label
+ORDER BY DESC(?labelN)
         """
-        for cluster, label, count in query_with_wrapper(endpoint, query):
+        for cluster, label, count, conf in query_with_wrapper(endpoint, query):
             self.cluster_labels[cluster] = self.cluster_labels.get(cluster, list())
-            self.cluster_labels[cluster].append((label, count))
+            self.cluster_labels[cluster].append((label, count, conf))
 
     def generate_report(self):
         query = """
 PREFIX aida: <http://darpa.mil/aida/interchangeOntology#>
-PREFIX xij: <http://isi.edu/xij-rule-set#> 
+PREFIX xij: <http://isi.edu/xij-rule-set#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-SELECT ?sn1 ?prefLabel1 ?sn2 ?prefLabel2 ?predicate ?edgeCount (GROUP_CONCAT(?value; separator = ", ") AS ?sourceConf)
+SELECT ?sn1 ?prefLabel1 ?sn2 ?prefLabel2 ?predicate ?edgeCount (GROUP_CONCAT(?value; separator = ", ") AS ?sourceConf) (AVG(?value) AS ?avg)
 WHERE {
   ?sn1 a aida:SameAsCluster ;
        aida:prototype ?prototype1 .
@@ -53,12 +57,8 @@ WHERE {
       rdf:object ?sn2 ;
       rdf:predicate ?predicate ;
       aida:edgeCount ?edgeCount .
-  ?membership1 a aida:ClusterMembership ;
-               aida:cluster ?sn1 ;
-               aida:clusterMember ?e1 .
-  ?membership2 a aida:ClusterMembership ;
-               aida:cluster ?sn2 ;
-               aida:clusterMember ?e2 .
+  ?e1 xij:inCluster ?sn1 .
+  ?e2 xij:inCluster ?sn2 .
   ?statement a rdf:Statement ;
              rdf:subject ?e1 ;
              rdf:predicate ?predicate ;
@@ -69,28 +69,36 @@ WHERE {
 GROUP BY ?sn1 ?prefLabel1 ?sn2 ?prefLabel2 ?predicate ?edgeCount
 ORDER BY DESC(?edgeCount)
 """
-        for sn1, label1, sn2, label2, pred, count, conf in query_with_wrapper(endpoint, query):
+        for sn1, label1, sn2, label2, pred, count, confs, avg_conf in query_with_wrapper(endpoint, query):
             print("** {} {} {}".format(label1, pred.replace('http://darpa.mil/ontologies/SeedlingOntology#', 'domainOntology:'), label2))
             print("- *Cluster as Subject*")
             print("  - URI: {}".format(sn1))
             print("  - prefLabel: {}".format(label1))
             if self.cluster_labels[sn1]:
                 print("  - labels:")
-                for label, cnt in self.cluster_labels[sn1]:
-                    print("    + ({}, {})".format(label, cnt))
+                for label, cnt, confidence in self.cluster_labels[sn1]:
+                    if confidence:
+                        print("    + ({}, {}, {:.3})".format(label, cnt, float(confidence)))
+                    else:
+                        print("    + ({}, {})".format(label, cnt))
 
             print("- *Cluster as Object*")
             print("  - URI: {}".format(sn2))
             print("  - prefLabel: {}".format(label2))
             if self.cluster_labels[sn2]:
                 print("  - labels:")
-                for label, cnt in self.cluster_labels[sn2]:
-                    print("    + ({}, {})".format(label, cnt))
+                for label, cnt, confidence in self.cluster_labels[sn2]:
+                    if confidence:
+                        print("    + ({}, {}, {:.3})".format(label, cnt, float(confidence)))
+                    else:
+                        print("    + ({}, {})".format(label, cnt))
 
             print("- *Predicate*")
             print("  - URI: {}".format(pred))
             print("  - Count: {}".format(count))
-            print("  - Confidence: {}".format(conf))
+            print("  - Average Confidence: {:.3}".format(float(avg_conf)))
+            print("  - Confidences: {}".format(", ".join(["{:.3}".format(float(c)) for c in confs.split(", ")])))
+
 
 report = ClusterReport()
 report.generate_report()
