@@ -1,5 +1,10 @@
 from SPARQLWrapper import SPARQLWrapper, JSON
 from rdflib import URIRef, Literal, BNode
+from rdflib.namespace import RDF
+import sys
+sys.path.append('/Users/eric/Git/NCC/AIDA-Interchange-Format/python/aida_interchange')
+import aifutils
+from aida_rdf_ontologies import AIDA_ANNOTATION
 
 
 def query_with_wrapper(endpoint, query):
@@ -26,3 +31,33 @@ def resolve(binding):
         print("Don't suppport Typed-literal")
 
 
+def make_super_edge(g, subject, predicate, object_, count, system):
+    super_edge = BNode()
+    g.add((super_edge, RDF.type, AIDA_ANNOTATION.SuperEdge))
+    g.add((super_edge, RDF.subject, subject))
+    g.add((super_edge, RDF.predicate, predicate))
+    g.add((super_edge, RDF.object, object_))
+    g.add((super_edge, AIDA_ANNOTATION.edgeCount, count))
+    aifutils.make_system_with_uri(g, system)
+    return super_edge
+
+
+def make_cluster(g, cluster_uri, prototype_uri, entities, system):
+    aifutils.make_cluster_with_prototype(g, cluster_uri, prototype_uri, system)
+    for entity in map(URIRef, entities):
+        aifutils.mark_as_possible_cluster_member(g, entity, cluster_uri, 1.0, system)
+    return cluster_uri
+
+
+def text_justify(words, maxWidth):
+    words = words.split()
+    res, cur, num_of_letters = [], [], 0
+    max_ = 0
+    for w in words:
+        if num_of_letters + len(w) + len(cur) > maxWidth:
+            res.append(' '.join(cur))
+            max_ = max(max_, num_of_letters)
+            cur, num_of_letters = [], 0
+        cur.append(w)
+        num_of_letters += len(w)
+    return res + [' '.join(cur).center(max_)]

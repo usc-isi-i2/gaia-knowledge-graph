@@ -5,144 +5,121 @@ TODO
 """
 from rdflib import URIRef, Graph, BNode, Literal
 from rdflib.namespace import SKOS, RDF
-from SPARQLWrapper import SPARQLWrapper, JSON
 import json
 import sys
 
 sys.path.append('/Users/eric/Git/NCC/AIDA-Interchange-Format/python/aida_interchange')
 import aifutils
 from aida_rdf_ontologies import AIDA_ANNOTATION
+from utils import make_cluster, make_super_edge, query_with_wrapper
 
 system = URIRef("http://isi.edu")
-g = aifutils.make_graph()
-endpoint = "http://localhost:3030/mayank/query"
-phase_one_input = './files_from_mayank/RPI_clusters_seedling.nt'
+# endpoint = "http://localhost:3030/mayank/query"
+endpoint = 'http://kg2018a.isi.edu:3030/mayank/sparql'
+phase_one_input = './files_from_mayank/RPI_clusters_seedling_without_cluster.nt'
+cluster_jsonl = './files_from_mayank/RPI_seedling_entity_event_clusters.jl'
 phase_one_output = './files_from_mayank/xij_tmp.nt'
 phase_two_output = './files_from_mayank/xij_output.nt'
 
 
 def phase_one():
+    g = aifutils.make_graph()
     g.load(phase_one_input, format='nt')
-    clean_out_cluster_inside()
-    with open('./files_from_mayank/RPI_clusters_seedling_same_link_clusters.jl') as f:
+    # clean_out_cluster_inside(g)
+    # g.serialize(phase_one_tmp, format='nt')
+    with open(cluster_jsonl) as f:
         for ln, line in enumerate(f.readlines()):
             try:
-                entity_list = json.loads(line)['entities']
+                json_object = json.loads(line)
+                if 'entities' in json_object:
+                    member_list = json_object['entities']
+                else:
+                    member_list = [json_object['events']]
             except json.JSONDecodeError:
                 raise json.JSONDecodeError('Cannot decode line %d: %s'.format(ln, line))
             except KeyError:
                 raise KeyError('Cannot find key "entities" at line %d: %s'.format(ln, line))
             # generate a synthetic entity for the most common prefLabel
-            make_cluster(entity_list)
+            prototype = make_synthetic_entity(g, member_list)
+            cluster_uri = URIRef(member_list[0]+'-cluster')
+            make_cluster(g, cluster_uri, prototype, member_list, system)
     g.serialize(phase_one_output, "nt")
 
 
 def phase_two():
+    g = aifutils.make_graph()
     g.load(phase_one_output, format='nt')
     # transfer all entity-entity relationships to cluster-cluster SuperEdge
-    transfer_relation_to_cluster(endpoint)
+    transfer_relation_to_cluster(g, endpoint)
     g.serialize(phase_two_output, format='nt')
 
 
-def clean_out_cluster_inside():
+def clean_out_cluster_inside(g):
     """
     Inside Mayank's file, he has already defined some cluster that we don't want any more
     """
-    for sub in g.triples((None, RDF.type, AIDA_ANNOTATION.SameAsCluster)):
+    for sub, _, _ in g.triples((None, RDF.type, AIDA_ANNOTATION.SameAsCluster)):
         g.remove((sub, None, None))
 
 
-def make_synthetic_entity(entities):
-    prototype = URIRef(entities[0]+'_prototype')
+def make_synthetic_entity(g, entities):
+    prototype = URIRef(entities[0]+'-prototype')
     entities_query_set = ', '.join(map(URIRef.n3, map(URIRef, entities)))
     # DONE {xij} add top two most common type for it
     type_copy_query = """
-SELECT ?type 
+SELECT ?type
 WHERE {
-  ?s a ?type 
+  ?s a ?type
   FILTER ( ?s IN ( %s ) )
 }
 GROUP BY ?type
-ORDER BY DESC(COUNT ?type)
+ORDER BY DESC(COUNT(?type))
 LIMIT 2 """ % entities_query_set
-    for row in query_with_sparqlwrapper(endpoint, type_copy_query):
-        type_ = row['type']['value']
-        g.add((prototype, RDF.type, URIRef(type_)))
+    for type_, in query_with_wrapper(endpoint, type_copy_query):
+        g.add((prototype, RDF.type, type_))
     # Find all DatatypeProperties
     # For each, find the most common value
     datatypeproperty_copy_query = """
 SELECT ?p ?o (COUNT(?o) AS ?oN)
 WHERE {
-  ?s ?p ?o 
+  ?s ?p ?o
   FILTER ( ?s IN ( %s ) && isLiteral(?o) )
 }
-GROUP BY ?p ?o"""
+GROUP BY ?p ?o""" % entities_query_set
     # DONE {Xi}: copy all DatatypeProperty for a synthetic entity
     properties = {}
-    for row in query_with_sparqlwrapper(endpoint, datatypeproperty_copy_query):
-        p = row['p']['value']
-        o = row['o']['value']
-        on = int(row['oN']['value'])
+    for p, o, on in query_with_wrapper(endpoint, datatypeproperty_copy_query):
+        on = int(on)
         if p in properties:
             if on <= properties[p][0]:
                 continue
         properties[p] = (on, o)
+
     aifutils.make_entity(g, prototype, system)
     for p in properties:
         g.add((prototype, URIRef(p), Literal(properties[p][1])))
     return prototype
 
 
-def make_cluster(entities):
-    cluster_uri = URIRef(entities[0] + '_cluster')
-    prototype_uri = make_synthetic_entity(entities)
-    aifutils.make_cluster_with_prototype(g, cluster_uri, prototype_uri, system)
-    for entity in map(URIRef, entities):
-        aifutils.mark_as_possible_cluster_member(g, entity, cluster_uri, 1.0, system)
-    return cluster_uri
-
-
-def make_super_edge(subject, predicate, object_, count):
-    super_edge = BNode()
-    g.add((super_edge, RDF.type, AIDA_ANNOTATION.SuperEdge))
-    g.add((super_edge, RDF.subject, subject))
-    g.add((super_edge, RDF.predicate, predicate))
-    g.add((super_edge, RDF.object, object_))
-    g.add((super_edge, AIDA_ANNOTATION.edgeCount, count))
-    aifutils.make_system_with_uri(g, system)
-    return super_edge
-
-
-def transfer_relation_to_cluster(endpoint):
+def transfer_relation_to_cluster(g, endpoint):
     super_edge_count_query = """
 PREFIX aida: <http://darpa.mil/aida/interchangeOntology#>
-SELECT ?cluster1 ?pred ?cluster2 (COUNT(DISTINCT *) AS ?count)
+PREFIX xij: <http://isi.edu/xij-rule-set#>
+SELECT ?cluster1 ?p ?cluster2 (COUNT(*) AS ?edgeN)
 WHERE {
-  ?e1 a aida:Entity ;
-      aida:inCluster ?cluster1 ;
-      ?pred ?e2 .
-  ?e2 a aida:Entity ;
-      aida:inCluster ?cluster2 .
+  ?e1 xij:inCluster ?cluster1 ;
+      ?p ?e2 .
+  ?e2 xij:inCluster ?cluster2 .
 }
-GROUP BY ?cluster1 ?pred ?cluster2
+GROUP BY ?cluster1 ?p ?cluster2 
 """
-    for row in query_with_sparqlwrapper(endpoint, super_edge_count_query):
-        c1 = row['cluster1']['value']
-        pred = row['pred']['value']
-        c2 = row['cluster2']['value']
-        count = row['count']['value']
-        make_super_edge(URIRef(c1), URIRef(pred), URIRef(c2), Literal(count))
-
-
-def query_with_sparqlwrapper(endpoint, query):
-    sparql = SPARQLWrapper(endpoint)
-    sparql.setQuery(query)
-    sparql.setReturnFormat(JSON)
-    return sparql.query().convert()['results']['bindings']
+    for c1, pred, c2, count in query_with_wrapper(endpoint, super_edge_count_query):
+        make_super_edge(g, c1, pred, c2, count, system)
 
 
 # First, run phase one
-# phase_one()
-# input("Load the output into Fuseki, then run phase two. Ready?")
+phase_one()
+input("Load the output into Fuseki, then run phase two. Ready?")
 # Load output into Fuseki, then run phase two
+print("Running phase two...")
 phase_two()
