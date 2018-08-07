@@ -49,12 +49,12 @@ def make_cluster(g, cluster_uri, prototype_uri, entities, system):
     return cluster_uri
 
 
-def text_justify(words, maxWidth):
+def text_justify(words, max_width):
     words = words.split()
     res, cur, num_of_letters = [], [], 0
     max_ = 0
     for w in words:
-        if num_of_letters + len(w) + len(cur) > maxWidth:
+        if num_of_letters + len(w) + len(cur) > max_width:
             res.append(' '.join(cur))
             max_ = max(max_, num_of_letters)
             cur, num_of_letters = [], 0
