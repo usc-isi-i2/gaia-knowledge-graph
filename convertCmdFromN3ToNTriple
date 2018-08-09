@@ -1,1 +1,0 @@
-curl --data-urlencode content@myLocalRDF.nt.txt http://rdf-translator.appspot.com/convert/n3/nt/content > output1.nt

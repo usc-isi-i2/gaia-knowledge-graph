@@ -7,6 +7,15 @@ import aifutils
 from aida_rdf_ontologies import AIDA_ANNOTATION
 
 
+def ask_with_wrapper(endpoint, ask_query):
+    sparql = SPARQLWrapper(endpoint)
+    sparql.setQuery(ask_query)
+    sparql.setReturnFormat(JSON)
+    result = sparql.query().convert()
+    return result['boolean']
+
+
+
 def query_with_wrapper(endpoint, query):
     sparql = SPARQLWrapper(endpoint)
     sparql.setQuery(query)

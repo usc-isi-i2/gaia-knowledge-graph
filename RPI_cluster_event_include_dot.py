@@ -11,21 +11,16 @@ from ClusterReport import ClusterReport
 class AllClusterReport(ClusterReport):
     def __init__(self, endpoint):
         super().__init__(endpoint)
-        self._init_cluster_count()
-        self._init_cluster_label()
-        self._init_cluster_type()
-        self._init_cluster_source()
         self._init_cluster_tooltips()
 
     def read_superedges(self):
         node_strings = []
         edge_strings = []
         supernodes = set()
-        for sn1, predicate, sn2, count, avg in self._query_super_edges():
+        for sn1, pred, sn2, count, avg in self._query_super_edges():
             supernodes.add(sn1)
             supernodes.add(sn2)
-            label = predicate.replace('http://darpa.mil/ontologies/SeedlingOntology#', '')
-            edge = '  "{}" -> "{}" [label="{}\\n(×{}, {:.3})", color="#d62728", penwidth="2"]'.format(sn1, sn2, label, count, float(avg))
+            edge = '  "{}" -> "{}" [label="{}\\n(×{}, {:.3})", color="#d62728", penwidth="2"]'.format(sn1, sn2, pred, count, avg)
             edge_strings.append(edge)
 
         for sn in supernodes:

@@ -121,4 +121,37 @@ WHERE {
 }
 GROUP BY ?sn1 ?predicate ?sn2 ?edgeCount
 """
-        return query_with_wrapper(self.endpoint, query)
+        for sn1, predicate, sn2, count, avg in query_with_wrapper(self.endpoint, query):
+            pred = predicate.replace('http://darpa.mil/ontologies/SeedlingOntology#', '')
+            yield sn1, pred, sn2, int(count), float(avg)
+
+    def _query_entity_super_edges(self):
+        query = """
+PREFIX aida: <http://darpa.mil/aida/interchangeOntology#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xij: <http://isi.edu/xij-rule-set#>
+SELECT ?sn1 ?predicate ?sn2 ?edgeCount (AVG(?value) AS ?avg)
+WHERE {
+  ?sn1 aida:prototype ?prototype1 .
+  ?prototype1 a aida:Entity .
+  ?sn2 aida:prototype ?prototype2 .
+  ?prototype2 a aida:Entity .
+  ?se a aida:SuperEdge ;
+      rdf:subject ?sn1 ;
+      rdf:object ?sn2 ;
+      rdf:predicate ?predicate ;
+      aida:edgeCount ?edgeCount .
+  ?e1 xij:inCluster ?sn1 .
+  ?e2 xij:inCluster ?sn2 .
+  ?statement a rdf:Statement ;
+             rdf:subject ?e1 ;
+             rdf:predicate ?predicate ;
+             rdf:object ?e2 ;
+             aida:confidence ?confidence .
+  ?confidence aida:confidenceValue ?value .
+}
+GROUP BY ?sn1 ?label1 ?predicate ?sn2 ?label2 ?edgeCount
+"""
+        for sn1, predicate, sn2, count, avg in query_with_wrapper(self.endpoint, query):
+            pred = predicate.replace('http://darpa.mil/ontologies/SeedlingOntology#', '')
+            yield sn1, pred, sn2, int(count), float(avg)
