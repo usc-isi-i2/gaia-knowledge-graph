@@ -4,4 +4,3 @@ aif_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'AIDA-Inter
 sys.path.append(aif_path)
 import aifutils
 import aida_rdf_ontologies
-
