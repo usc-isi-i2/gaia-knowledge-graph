@@ -13,14 +13,6 @@ statements = g.query(
             ?s rdf:object ?obj .
        }""")
 
-# statements = g.query(
-#         """SELECT DISTINCT ?sub ?pred ?obj
-#         WHERE {
-#             { ?s rdf:type rdf:Statement . ?s rdf:predicate ?pred } UNION
-#             { ?s rdf:type ?pred . OPTIONAL { ?s rdf:predicate ?p } . FILTER (!bound(?p)) }
-#             ?s rdf:subject ?sub .
-#             ?s rdf:object ?obj .
-#        }""")
 
 d = dict()
 for s, p, o in statements:
