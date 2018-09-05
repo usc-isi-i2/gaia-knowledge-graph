@@ -194,6 +194,21 @@ where {
 }
 """
 
+q_insert_prototype_justification = """
+insert {
+	?p aida:justifiedBy ?j
+}
+where {
+  ?c a aida:SameAsCluster ;
+     aida:prototype ?p .
+  {select ?j where {
+    ?mem aida:cluster ?c ;
+         aida:clusterMember ?e .
+    ?e aida:justifiedBy ?j .
+    } limit 1}
+} 
+"""
+
 
 class ClusterMaker(object):
     def __init__(self):

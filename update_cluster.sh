@@ -14,12 +14,11 @@ steps = {
     'insert_superEdge': lambda: send_query(q_insert_superedge)
 }
 "
-: '
+
 date +"%R"
 echo " - step 0: delete all data in the dataset !!!!!"
 curl -X POST -d "update=delete {?s ?p ?o} where {?s ?p ?o}" "$ENDPOINT/update"
 python update_cluster.py "count_triples" "$ENDPOINT"
-'
 
 
 date +"%R"
@@ -76,5 +75,10 @@ echo " - step 7: insert type for prototypes"
 python update_cluster.py "insert_type" "$ENDPOINT"
 python update_cluster.py "count_triples" "$ENDPOINT"
 
-date +"%R"
 
+date +"%R"
+echo " - step 8: download the nt with clusters"
+curl GET "$ENDPOINT/get" > "$JL_FOLDER/with_cluster.aif"
+python update_cluster.py "count_triples" "$ENDPOINT"
+
+date +"%R"
