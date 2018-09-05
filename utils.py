@@ -15,7 +15,6 @@ def ask_with_wrapper(endpoint, ask_query):
     return result['boolean']
 
 
-
 def query_with_wrapper(endpoint, query):
     sparql = SPARQLWrapper(endpoint)
     sparql.setQuery(query)
