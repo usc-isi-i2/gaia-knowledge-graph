@@ -194,19 +194,58 @@ where {
 }
 """
 
+# q_insert_prototype_justification = """
+# insert {
+# 	?p aida:justifiedBy ?j
+# }
+# where {
+#   ?c a aida:SameAsCluster ;
+#      aida:prototype ?p .
+#   {select ?j where {
+#     ?mem aida:cluster ?c ;
+#          aida:clusterMember ?e .
+#     ?e aida:justifiedBy ?j .
+#     } limit 1}
+# }
+# """
+
 q_insert_prototype_justification = """
 insert {
-	?p aida:justifiedBy ?j
+    ?p aida:justifiedBy ?j .
 }
 where {
-  ?c a aida:SameAsCluster ;
-     aida:prototype ?p .
-  {select ?j where {
+    ?c aida:prototype ?p .
     ?mem aida:cluster ?c ;
-         aida:clusterMember ?e .
-    ?e aida:justifiedBy ?j .
-    } limit 1}
-} 
+         aida:clusterMember ?x .
+    ?x aida:justifiedBy ?j .
+}
+"""
+
+
+q_insert_superedge = """
+insert {
+    [] a rdf:Statement ;
+       rdf:subject ?evtRelProto ;
+       rdf:predicate ?p ;
+       rdf:object ?entProto ;
+  	   aida:count ?cnt .
+}
+where {
+  select ?evtRelProto ?p ?entProto (count(*) as ?cnt)
+  where {
+      ?evtRelC aida:prototype ?evtRelProto .
+      ?mem1 aida:cluster ?evtRelC ;
+           aida:clusterMember ?evtRel .
+      ?entC aida:prototype ?entProto .
+      ?mem2 aida:cluster ?entC ;
+           aida:clusterMember ?ent .
+      {?evtRelProto a aida:Event .} UNION {?evtRelProto a aida:Relation .}
+      ?entProto a aida:Entity .
+      ?state rdf:subject ?evtRel ;
+             rdf:predicate ?p ;
+             rdf:object ?ent .
+  } groupby ?evtRelProto ?p ?entProto orderby desc(?cnt)
+}
 """
 
 
@@ -214,7 +253,8 @@ class ClusterMaker(object):
     def __init__(self):
         self.types = {
             'entities': AIDA_ANNOTATION.Entity,
-            'events': AIDA_ANNOTATION.Event
+            'events': AIDA_ANNOTATION.Event,
+            'relations': AIDA_ANNOTATION.Relation
         }
         self.system = URIRef("http://isi.edu")
         self.g = aifutils.make_graph()
@@ -270,13 +310,22 @@ def count_triples():
     print('  [COUNT TRIPLES] ', sw.query().convert()['results']['bindings'][0]['cnt']['value'])
 
 
+def temp_generate_relation_cluster():
+    jl_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'jl') if len(sys.argv) < 4 else sys.argv[3]
+    output = 'nt/relation.nt' if len(sys.argv) < 5 else sys.argv[4] + '/relation.nt'
+    cluster_jsonls = [jl_path.rstrip('/') + '/relation.jl']
+    cm = ClusterMaker()
+    cm.generate_cluster_nt(cluster_jsonls, output)
+
 steps = {
     'insert_hasname': lambda: send_query(q_insert_hasName),
     'delete_ori_cluster': lambda: send_query(q_delete_ori_cluster),
     'generate_cluster': generate_cluster,
     'insert_name_entity': lambda: send_query(q_insert_name_entity),
     'insert_type': lambda: send_query(q_insert_type),
-    'insert_superEdge': lambda: send_query(q_insert_superedge),
+    'insert_prototype_justification': lambda: send_query(q_insert_prototype_justification),
+    'insert_superedge': lambda: send_query(q_insert_superedge),
+    'temp_generate_relation_cluster': temp_generate_relation_cluster,
 
     'count_triples': count_triples
 }

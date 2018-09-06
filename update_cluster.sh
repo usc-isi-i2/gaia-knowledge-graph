@@ -64,6 +64,23 @@ curl -X POST -d "@$NT_FOLDER/phase1.nt" "$ENDPOINT/data" --header "Content-Type:
 python update_cluster.py "count_triples" "$ENDPOINT"
 
 
+
+date +"%R"
+echo "[TEMP]: generate relation cluster jl"
+python gaia-clustering/src/generate_relation_cluster.py "$ENDPOINT" "$JL_FOLDER"
+
+date +"%R"
+echo "[TEMP]: generate relation cluster nt"
+temp_generate_relation_cluster "$ENDPOINT" "$JL_FOLDER" "$NT_FOLDER"
+
+date +"%R"
+echo "[TEMP]: upload relation cluster nt"
+curl -X POST -d "@$NT_FOLDER/relation.nt" "$ENDPOINT/data" --header "Content-Type: text/turtle"
+python update_cluster.py "count_triples" "$ENDPOINT"
+
+
+
+
 date +"%R"
 echo " - step 6: insert name for entity prototypes"
 python update_cluster.py "insert_name_entity" "$ENDPOINT"
@@ -77,8 +94,25 @@ python update_cluster.py "count_triples" "$ENDPOINT"
 
 
 date +"%R"
-echo " - step 8: download the nt with clusters"
-curl GET "$ENDPOINT/get" > "$JL_FOLDER/with_cluster.aif"
+echo " - step 8: insert justifications for prototypes"
+python update_cluster.py "insert_prototype_justification" "$ENDPOINT"
 python update_cluster.py "count_triples" "$ENDPOINT"
+
+
+date +"%R"
+echo " - step 9: download the nt with clusters"
+curl GET "$ENDPOINT/get" > "$JL_FOLDER/with_cluster.aif"
+
+
+date +"%R"
+echo " - step 10: insert superEdges"
+python update_cluster.py "insert_superedge" "$ENDPOINT"
+python update_cluster.py "count_triples" "$ENDPOINT"
+
+
+date +"%R"
+echo " - step 11: download the nt with clusters and superedges"
+curl GET "$ENDPOINT/get" > "$JL_FOLDER/with_superedge.aif"
+
 
 date +"%R"
