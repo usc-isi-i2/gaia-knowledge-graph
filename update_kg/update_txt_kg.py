@@ -25,6 +25,7 @@ from namespaces import namespaces, ENTITY_TYPE_STR
 sys.path.append("../gaia-clustering/multi_layer_network/test")
 import baseline2_exe, from_jsonhead2cluster
 
+
 class Updater(object):
     def __init__(self, endpoint, outputs_prefix):
         self.select = SPARQLWrapper(endpoint.rstrip('/') + '/query')
@@ -64,12 +65,10 @@ class Updater(object):
 
         print("start inserting triples for entity clusters", datetime.now().isoformat())
         entity_nt = self.convert_jl_to_nt(entity_jl, 'aida:Entity', 'entities')
-        print(len(entity_nt))
         self.upload_data(entity_nt)
 
         print("start inserting triples for event clusters", datetime.now().isoformat())
         event_nt = self.convert_jl_to_nt(event_jl, 'aida:Event', 'events')
-        print(len(event_nt))
         self.upload_data(event_nt)
 
         print("start getting relation jl", datetime.now().isoformat())
@@ -77,7 +76,6 @@ class Updater(object):
 
         print("start inserting triples for relation clusters", datetime.now().isoformat())
         relation_nt = self.convert_jl_to_nt(relation_jl, 'aida:Relation', 'relations')
-        print(len(relation_nt))
         self.upload_data(relation_nt)
 
         print("start inserting prototype name", datetime.now().isoformat())
@@ -99,7 +97,9 @@ class Updater(object):
         print("Done. ", datetime.now().isoformat())
 
     def upload_data(self, nt_data):
+        print('  start a post request on %s, with data length %d' % (self.data_endpoint, len(nt_data)))
         r = requests.post(self.data_endpoint, data=nt_data, headers={'Content-Type': 'text/turtle'})
+        print('  response ', r.content)
         return r.content
 
     def update_sparql(self, q):
@@ -121,7 +121,7 @@ class Updater(object):
         return nt
 
     def wrap_membership(self, cluster, member):
-        return '''
+        membership = '''
         [] a aida:ClusterMembership ;
            aida:cluster <%s> ;
            aida:clusterMember <%s> ;
@@ -131,14 +131,16 @@ class Updater(object):
                 aida:system <%s> ] ;
            aida:system <%s> .
         ''' % (cluster, member, self.system, self.system)
+        return membership.strip('\n')
 
     def wrap_cluster(self, cluster, prototype, prototype_type):
-        return '''
+        cluster = '''
         <%s> a               aida:SameAsCluster ;
              aida:prototype  <%s> ;
              aida:system     <%s> .
         <%s> a %s .
         ''' % (cluster, prototype, self.system, prototype, prototype_type)
+        return cluster.strip('\n')
 
     def get_json_head(self):
         ent_q = self.queries['1.1_get_entity_txt.sparql']
