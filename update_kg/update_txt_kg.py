@@ -37,6 +37,7 @@ class Updater(object):
         self.outputs_prefix = outputs_prefix
 
         self.prefix = ''.join(['PREFIX %s: <%s>\n' % (abbr, full) for abbr, full in namespaces.items()])
+        self.nt_prefix = ''.join(['@prefix %s: <%s> .\n' % (abbr, full) for abbr, full in namespaces.items()])
         self.system = 'http://www.isi.edu'
         self.queries = {}
         for f_name in os.listdir('queries'):
@@ -98,7 +99,7 @@ class Updater(object):
 
     def upload_data(self, nt_data):
         print('  start a post request on %s, with data length %d' % (self.data_endpoint, len(nt_data)))
-        r = requests.post(self.data_endpoint, data=nt_data, headers={'Content-Type': 'text/turtle'})
+        r = requests.post(self.data_endpoint, data=self.nt_prefix + nt_data, headers={'Content-Type': 'text/turtle'})
         print('  response ', r.content)
         return r.content
 
