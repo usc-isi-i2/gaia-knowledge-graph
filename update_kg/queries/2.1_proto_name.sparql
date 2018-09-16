@@ -1,0 +1,25 @@
+insert {?prototype aida:hasName ?name}
+where {
+    select ?prototype (max(?label1) as ?name)
+    where {
+        {
+            select ?prototype (max(?cnt) as ?max)
+            where {
+                select ?prototype ?label (count(?label) as ?cnt)
+                where {
+                    ?c aida:prototype ?prototype .
+                    ?e aida:hasName ?label .
+                    ?membership aida:cluster ?c ; aida:clusterMember ?e .
+                } group by ?prototype ?label
+            } group by ?prototype
+        }
+        {
+            select ?prototype ?label1 (count(?label1) as ?max)
+            where {
+                    ?c1 aida:prototype ?prototype .
+                    ?e1 aida:hasName ?label1 .
+                    ?membership1 aida:cluster ?c1 ; aida:clusterMember ?e1 .
+            } group by ?prototype ?label1
+        }
+    } group by ?prototype
+}
