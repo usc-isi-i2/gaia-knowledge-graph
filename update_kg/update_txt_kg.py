@@ -50,8 +50,6 @@ class Updater(object):
             entity_jl = self.load_jl(self.outputs_prefix + 'entity.jl')
             print("start loading event jl", datetime.now().isoformat())
             event_jl = self.load_jl(self.outputs_prefix + 'event.jl')
-            print("start loading relation jl", datetime.now().isoformat())
-            relation_jl = self.load_jl(self.outputs_prefix + 'relation.jl')
         else:
             print("start getting json head", datetime.now().isoformat())
             self.get_json_head()
@@ -63,19 +61,23 @@ class Updater(object):
             entity_jl, entity_edgelist_G = from_jsonhead2cluster.run(self.entity_json, self.outputs_prefix)
             print("start getting event jl", datetime.now().isoformat())
             event_jl = baseline2_exe.run(entity_edgelist_G, self.entity_json, self.event_json, self.outputs_prefix)
-            print("start getting relation jl", datetime.now().isoformat())
-            relation_jl = self.generate_relation_jl()
 
         print("start inserting triples for entity clusters", datetime.now().isoformat())
         entity_nt = self.convert_jl_to_nt(entity_jl, 'aida:Entity', 'entities')
+        print(len(entity_nt))
         self.upload_data(entity_nt)
 
         print("start inserting triples for event clusters", datetime.now().isoformat())
         event_nt = self.convert_jl_to_nt(event_jl, 'aida:Event', 'events')
+        print(len(event_nt))
         self.upload_data(event_nt)
+
+        print("start getting relation jl", datetime.now().isoformat())
+        relation_jl = self.generate_relation_jl()
 
         print("start inserting triples for relation clusters", datetime.now().isoformat())
         relation_nt = self.convert_jl_to_nt(relation_jl, 'aida:Relation', 'relations')
+        print(len(relation_nt))
         self.upload_data(relation_nt)
 
         print("start inserting prototype name", datetime.now().isoformat())
