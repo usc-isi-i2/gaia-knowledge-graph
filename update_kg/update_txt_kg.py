@@ -126,7 +126,7 @@ class Updater(object):
             if 'linkTarget' in x:
                 link_target = x['linkTarget']['value']
             else:
-                link_target = ''.join([random.choice(string.ascii_letters + string.digits) for _ in range(32)])
+                link_target = self.random_str()
             try:
                 trans_name = json.loads(x['translate']['value'])[0]
                 self.entity_json[x['e']['value']] = [trans_name, x['type']['value'], link_target]
@@ -187,6 +187,11 @@ class Updater(object):
                 json.dump(line, f)
                 f.write('\n')
         return jl
+
+    @staticmethod
+    def random_str(length=32):
+        return ''.join([random.choice(string.ascii_letters + string.digits) for _ in range(length)])
+
 
 
 if len(sys.argv) > 2:
