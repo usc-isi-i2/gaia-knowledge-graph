@@ -46,8 +46,11 @@ class Updater(object):
 
     def run(self, run_from_jl_file=False):
         if run_from_jl_file:
+            print("start loading entity jl", datetime.now().isoformat())
             entity_jl = self.load_jl(self.outputs_prefix + 'entity.jl')
+            print("start loading event jl", datetime.now().isoformat())
             event_jl = self.load_jl(self.outputs_prefix + 'event.jl')
+            print("start loading relation jl", datetime.now().isoformat())
             relation_jl = self.load_jl(self.outputs_prefix + 'relation.jl')
         else:
             print("start getting json head", datetime.now().isoformat())
@@ -219,7 +222,7 @@ class Updater(object):
 if len(sys.argv) > 2:
     endpoint = sys.argv[1]
     output = sys.argv[2]
-    run_from_jl = bool(sys.argv[3]) if len(sys.argv > 3) else False
+    run_from_jl = bool(sys.argv[3]) if len(sys.argv) > 3 else False
     Updater(endpoint, output).run(run_from_jl)
 else:
     Updater("http://localhost:3030/test", "./test_output/").run()
