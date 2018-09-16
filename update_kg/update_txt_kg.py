@@ -16,6 +16,7 @@ import sys
 import json
 import random
 import string
+from datetime import datetime
 from SPARQLWrapper import SPARQLWrapper
 from pathlib import Path
 sys.path.append("../gaia-clustering/multi_layer_network/src")
@@ -43,42 +44,44 @@ class Updater(object):
         self.event_json = {}
 
     def run(self):
-        print("start getting json head")
+        print("start getting json head", datetime.now().isoformat())
         self.get_json_head()
 
         # run Xin's clustering scripts
 
-        print("start getting entity jl")
+        print("start getting entity jl", datetime.now().isoformat())
         entity_jl, entity_edgelist_G = from_jsonhead2cluster.run(self.entity_json, self.outputs_prefix)
-        print("start getting event jl")
+        print("start getting event jl", datetime.now().isoformat())
         event_jl = baseline2_exe.run(entity_edgelist_G, self.entity_json, self.event_json, self.outputs_prefix)
-        print("start getting relation jl")
+        print("start getting relation jl", datetime.now().isoformat())
         relation_jl = self.generate_relation_jl()
 
-        print("start inserting triples for entity clusters")
+        print("start inserting triples for entity clusters", datetime.now().isoformat())
         self.update_sparql(self.convert_jl_to_insertion(entity_jl, 'aida:Entity', 'entities'))
 
-        print("start inserting triples for event clusters")
+        print("start inserting triples for event clusters", datetime.now().isoformat())
         self.update_sparql(self.convert_jl_to_insertion(event_jl, 'aida:Event', 'events'))
 
-        print("start inserting triples for relation clusters")
+        print("start inserting triples for relation clusters", datetime.now().isoformat())
         self.update_sparql(self.convert_jl_to_insertion(relation_jl, 'aida:Relation', 'relations'))
 
-        print("start inserting prototype name")
+        print("start inserting prototype name", datetime.now().isoformat())
         insert_name = self.queries['2.1_proto_name.sparql']
         self.update_sparql(insert_name)
 
-        print("start inserting prototype type(category)")
+        print("start inserting prototype type(category)", datetime.now().isoformat())
         insert_type = self.queries['2.2_proto_type.sparql']
         self.update_sparql(insert_type)
 
-        print("start inserting prototype justification")
+        print("start inserting prototype justification", datetime.now().isoformat())
         insert_justi = self.queries['2.3_proto_justification.sparql']
         self.update_sparql(insert_justi)
 
-        print("start inserting superEdge")
+        print("start inserting superEdge", datetime.now().isoformat())
         insert_se = self.queries['3.1_superedge.sparql']
         self.update_sparql(insert_se)
+
+        print("Done. ", datetime.now().isoformat())
 
     def update_sparql(self, q):
         self.update.setQuery(self.prefix + q)
