@@ -46,6 +46,7 @@ class Updater(object):
     def run(self):
         print("start getting json head", datetime.now().isoformat())
         self.get_json_head()
+        print(len(self.entity_json), len(self.event_json))
 
         # run Xin's clustering scripts
 
@@ -130,7 +131,9 @@ class Updater(object):
                 trans_name = json.loads(x['translate']['value'])[0]
                 self.entity_json[x['e']['value']] = [trans_name, x['type']['value'], link_target]
             except Exception:
-                self.entity_json[x['e']['value']] = [x['name']['value'], x['type']['value'], link_target]
+                # TODO: get name from prefLabel ? if there is no hasName or textValue
+                name = x['name']['value'] if 'name' in x else ''
+                self.entity_json[x['e']['value']] = [name, x['type']['value'], link_target]
 
         evt_q = self.queries['1.2_get_event_txt.sparql']
         for x in self.select_bindings(evt_q)[1]:

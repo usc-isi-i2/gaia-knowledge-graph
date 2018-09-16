@@ -5,10 +5,12 @@ PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 SELECT DISTINCT ?e ?name ?translate ?type ?linkTarget
 WHERE {
     ?e a aida:Entity .
-    {
-       ?e aida:hasName ?name .
-    } UNION {
-       ?e aida:textValue ?name .
+    OPTIONAL {
+        {
+           ?e aida:hasName ?name .
+        } UNION {
+           ?e aida:textValue ?name .
+        }
     }
     OPTIONAL {
        ?e aida:link/aida:linkTarget ?linkTarget .
