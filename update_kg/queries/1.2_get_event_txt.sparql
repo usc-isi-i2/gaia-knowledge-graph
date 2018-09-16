@@ -5,19 +5,20 @@ PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 SELECT ?e ?type ?doc ?text ?translate ?ent
 WHERE {
     ?e a aida:Event;
-       aida:justifiedBy ?j .
-    ?j aida:source ?doc ;
-       skos:prefLabel ?text .
+       aida:justifiedBy [
+    		aida:source ?doc ;
+    		skos:prefLabel ?text ] .
     OPTIONAL {
-      ?j aida:privateData ?pd .
-      ?pd aida:jsonContent ?translate ;
-          aida:system <http://www.rpi.edu/EDL_Translation>
+      ?j aida:privateData [
+      		aida:jsonContent ?translate ;
+        	aida:system <http://www.rpi.edu/EDL_Translation> ] .
     }
     ?r rdf:subject ?e ;
        rdf:predicate rdf:type ;
        rdf:object ?type .
-
+	OPTIONAL {
       ?r2 rdf:subject ?e ;
-         rdf:object ?ent .
+          rdf:object ?ent .
       ?ent a aida:Entity .
+	}
 }
