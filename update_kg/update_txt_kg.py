@@ -18,9 +18,9 @@ import random
 import string
 from SPARQLWrapper import SPARQLWrapper
 from pathlib import Path
-sys.path.append("..")
+sys.path.append("../gaia-clustering/multi_layer_network/src")
 from namespaces import namespaces, ENTITY_TYPE_STR
-sys.path.append("../gaia-clustering/multi_layer_network/test/")
+sys.path.append("../gaia-clustering/multi_layer_network/test")
 import baseline2_exe, from_jsonhead2cluster
 
 
