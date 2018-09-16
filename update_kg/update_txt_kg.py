@@ -19,11 +19,11 @@ import string
 from datetime import datetime
 from SPARQLWrapper import SPARQLWrapper
 from pathlib import Path
+import requests
 sys.path.append("../gaia-clustering/multi_layer_network/src")
 from namespaces import namespaces, ENTITY_TYPE_STR
 sys.path.append("../gaia-clustering/multi_layer_network/test")
 import baseline2_exe, from_jsonhead2cluster
-
 
 class Updater(object):
     def __init__(self, endpoint, outputs_prefix):
@@ -31,6 +31,7 @@ class Updater(object):
         self.select.setReturnFormat('json')
         self.update = SPARQLWrapper(endpoint.rstrip('/') + '/update')
         self.update.setMethod('POST')
+        self.data_endpoint = endpoint.rstrip('/') + '/data'
 
         self.outputs_prefix = outputs_prefix
 
@@ -43,28 +44,36 @@ class Updater(object):
         self.entity_json = {}
         self.event_json = {}
 
-    def run(self):
-        print("start getting json head", datetime.now().isoformat())
-        self.get_json_head()
-        print(len(self.entity_json), len(self.event_json))
+    def run(self, run_from_jl_file=False):
+        if run_from_jl_file:
+            entity_jl = self.load_jl(self.outputs_prefix + 'entity.jl')
+            event_jl = self.load_jl(self.outputs_prefix + 'event.jl')
+            relation_jl = self.load_jl(self.outputs_prefix + 'relation.jl')
+        else:
+            print("start getting json head", datetime.now().isoformat())
+            self.get_json_head()
+            print(len(self.entity_json), len(self.event_json))
 
-        # run Xin's clustering scripts
+            # run Xin's clustering scripts
 
-        print("start getting entity jl", datetime.now().isoformat())
-        entity_jl, entity_edgelist_G = from_jsonhead2cluster.run(self.entity_json, self.outputs_prefix)
-        print("start getting event jl", datetime.now().isoformat())
-        event_jl = baseline2_exe.run(entity_edgelist_G, self.entity_json, self.event_json, self.outputs_prefix)
-        print("start getting relation jl", datetime.now().isoformat())
-        relation_jl = self.generate_relation_jl()
+            print("start getting entity jl", datetime.now().isoformat())
+            entity_jl, entity_edgelist_G = from_jsonhead2cluster.run(self.entity_json, self.outputs_prefix)
+            print("start getting event jl", datetime.now().isoformat())
+            event_jl = baseline2_exe.run(entity_edgelist_G, self.entity_json, self.event_json, self.outputs_prefix)
+            print("start getting relation jl", datetime.now().isoformat())
+            relation_jl = self.generate_relation_jl()
 
         print("start inserting triples for entity clusters", datetime.now().isoformat())
-        self.update_sparql(self.convert_jl_to_insertion(entity_jl, 'aida:Entity', 'entities'))
+        entity_nt = self.convert_jl_to_nt(entity_jl, 'aida:Entity', 'entities')
+        self.upload_data(entity_nt)
 
         print("start inserting triples for event clusters", datetime.now().isoformat())
-        self.update_sparql(self.convert_jl_to_insertion(event_jl, 'aida:Event', 'events'))
+        event_nt = self.convert_jl_to_nt(event_jl, 'aida:Event', 'events')
+        self.upload_data(event_nt)
 
         print("start inserting triples for relation clusters", datetime.now().isoformat())
-        self.update_sparql(self.convert_jl_to_insertion(relation_jl, 'aida:Relation', 'relations'))
+        relation_nt = self.convert_jl_to_nt(relation_jl, 'aida:Relation', 'relations')
+        self.upload_data(relation_nt)
 
         print("start inserting prototype name", datetime.now().isoformat())
         insert_name = self.queries['2.1_proto_name.sparql']
@@ -84,11 +93,15 @@ class Updater(object):
 
         print("Done. ", datetime.now().isoformat())
 
+    def upload_data(self, nt_data):
+        r = requests.post(self.data_endpoint, data=nt_data, headers={'Content-Type': 'text/turtle'})
+        return r.content
+
     def update_sparql(self, q):
         self.update.setQuery(self.prefix + q)
         print(self.update.query().convert())
 
-    def convert_jl_to_insertion(self, jl, aida_type, key_type):
+    def convert_jl_to_nt(self, jl, aida_type, key_type):
         res = []
         for line in jl:
             members = line[key_type]
@@ -97,8 +110,10 @@ class Updater(object):
             res.append(self.wrap_cluster(cluster_uri, prototype_uri, aida_type))
             memberships = '\n'.join([self.wrap_membership(cluster_uri, m) for m in members])
             res.append(memberships)
-        q = 'INSERT DATA {\n%s\n}' % '\n'.join(res)
-        return q
+        nt = '\n'.join(res)
+        # with open(self.outputs_prefix + key_type + '_cluster.nt', 'w') as f:
+        #     f.write(nt)
+        return nt
 
     def wrap_membership(self, cluster, member):
         return '''
@@ -189,14 +204,22 @@ class Updater(object):
         return jl
 
     @staticmethod
+    def load_jl(file_path):
+        jl = []
+        with open(file_path) as f:
+            for line in f.readlines():
+                jl.append(json.loads(line))
+        return jl
+
+    @staticmethod
     def random_str(length=32):
         return ''.join([random.choice(string.ascii_letters + string.digits) for _ in range(length)])
-
 
 
 if len(sys.argv) > 2:
     endpoint = sys.argv[1]
     output = sys.argv[2]
-    Updater(endpoint, output).run()
+    run_from_jl = bool(sys.argv[3]) if len(sys.argv > 3) else False
+    Updater(endpoint, output).run(run_from_jl)
 else:
     Updater("http://localhost:3030/test", "./test_output/").run()
