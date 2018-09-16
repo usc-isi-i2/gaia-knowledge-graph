@@ -1,0 +1,50 @@
+PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
+PREFIX ldcOnt: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/SeedlingOntology#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT DISTINCT ?e ?type ?name ?translate ?c ?linkTarget ?txt_grained_type ?vector ?img_grained_type WHERE {
+    ?e a aida:Entity .
+    ?rtype rdf:subject ?e ;
+           rdf:predicate rdf:type ;
+           rdf:object ?type .
+    OPTIONAL {
+        ?e aida:hasName ?name ;
+           aida:link/aida:linkTarget ?linkTarget .
+        OPTIONAL {
+            ?e aida:justifiedBy [
+                skos:prefLabel ?name ;
+                aida:privateData [
+                    aida:jsonContent ?translate ;
+                    aida:system <http://www.rpi.edu/EDL_Translation>
+                ]
+            ]
+        }
+        OPTIONAL {
+            ?e aida:link/aida:privateData [
+                 aida:jsonContent ?txt_grained_type ;
+                 aida:system <http://www.rpi.edu/EDL_FineGrained>
+            ]
+        }
+    }
+    OPTIONAL {
+        ?mem aida:cluster ?c ;
+             aida:clusterMember ?e .
+        OPTIONAL {
+            ?c aida:prototype/aida:link/aida:linkTarget ?linkTarget .
+        }
+    }
+    OPTIONAL {
+        ?e aida:privateData [
+            aida:system <http://www.columbia.edu/AIDA/DVMM/Systems/Grounding/ELMo-PNASNET> ;
+            aida:jsonContent ?vector
+        ]
+    }
+    OPTIONAL {
+      ?e aida:privateData [
+             aida:jsonContent ?img_grained_type ;
+             aida:system <http://www.columbia.edu/AIDA/DVMM/Systems/ObjectDetection/MITWeaklySupervised-ResNet/OpenImages>
+        ] .
+    }
+}
