@@ -43,4 +43,4 @@ class Counter(object):
         with open('entity_cluster.json', 'w') as f:
             json.dump(res, f, indent=2)
 
-# print(Counter('http://gaiadev01.isi.edu:3030/cu0912').get_clusters())
+# print(Counter('http://gaiadev01.isi.edu:3030/run3').get_cnts())
