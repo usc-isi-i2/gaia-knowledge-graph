@@ -1,5 +1,6 @@
-insert {?prototype aida:hasName ?name}
+insert {GRAPH <http://www.isi.com/supergraph> {?prototype aida:hasName ?name} }
 where {
+
     select ?prototype (max(?label1) as ?name)
     where {
         {

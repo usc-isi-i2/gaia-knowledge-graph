@@ -199,7 +199,7 @@ class Updater(object):
         print('  ', self.update.query().convert())
 
     def upload_data(self, triple_list):
-        ep = self.endpoint + '/data'
+        ep = self.endpoint + '/data?graph=http://www.isi.com/supergraph'
         print('  start a post request on %s, with triple list length %d' % (ep, len(triple_list)))
         data = self.nt_prefix + '\n'.join(triple_list)
         r = requests.post(ep, data=data, headers={'Content-Type': 'text/turtle'})

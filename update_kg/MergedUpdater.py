@@ -1,7 +1,7 @@
-from .Updater import Updater
+from Updater import Updater
+
 
 class MergedUpdater(Updater):
-
     def get_cluster(self):
         cluster = self.queries['merge_cluster.sparql']
         res = self.select_bindings(cluster)

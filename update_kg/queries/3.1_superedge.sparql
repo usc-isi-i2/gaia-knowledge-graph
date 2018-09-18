@@ -1,10 +1,10 @@
-insert {
+insert {GRAPH <http://www.isi.com/supergraph> {
     [] a rdf:Statement ;
        rdf:subject ?evtRelProto ;
        rdf:predicate ?p ;
        rdf:object ?entProto ;
   	   aida:count ?cnt .
-}
+}}
 where {
   select ?evtRelProto ?p ?entProto (count(*) as ?cnt)
   where {

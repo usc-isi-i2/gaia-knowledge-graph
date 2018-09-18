@@ -1,9 +1,10 @@
-insert {
+insert {GRAPH <http://www.isi.com/supergraph> {
     [] a rdf:Statement ;
         rdf:subject ?prototype ;
         rdf:predicate rdf:type ;
         rdf:object ?t
     }
+}
 where {
     select ?prototype (max(?type1) as ?t)
     where {
