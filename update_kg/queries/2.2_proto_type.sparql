@@ -13,18 +13,22 @@ where {
         where {
           select ?prototype ?type (count(?type) as ?cnt)
           where {
-            ?c aida:prototype ?prototype .
+            GRAPH <http://www.isi.com/supergraph> {
+                ?c aida:prototype ?prototype .
+                ?membership aida:cluster ?c ; aida:clusterMember ?e .
+            }
             ?x a rdf:Statement ; rdf:subject ?e ; rdf:predicate rdf:type ; rdf:object ?type .
-            ?membership aida:cluster ?c ; aida:clusterMember ?e .
           } group by ?prototype ?type
         } group by ?prototype
       }
       {
         select ?prototype ?type1 (count(?type1) as ?max)
         where {
-            ?c1 aida:prototype ?prototype .
+            GRAPH <http://www.isi.com/supergraph> {
+                ?c1 aida:prototype ?prototype .
+                ?membership1 aida:cluster ?c1 ; aida:clusterMember ?e1 .
+            }
             ?x a rdf:Statement ; rdf:subject ?e1 ; rdf:predicate rdf:type ; rdf:object ?type1 .
-            ?membership1 aida:cluster ?c1 ; aida:clusterMember ?e1 .
         } group by ?prototype ?type1
       }
     } group by ?prototype

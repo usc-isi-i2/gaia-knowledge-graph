@@ -8,12 +8,14 @@ insert {GRAPH <http://www.isi.com/supergraph> {
 where {
   select ?evtRelProto ?p ?entProto (count(*) as ?cnt)
   where {
-      ?evtRelC aida:prototype ?evtRelProto .
-      ?mem1 aida:cluster ?evtRelC ;
-           aida:clusterMember ?evtRel .
-      ?entC aida:prototype ?entProto .
-      ?mem2 aida:cluster ?entC ;
-           aida:clusterMember ?ent .
+      GRAPH <http://www.isi.com/supergraph> {
+          ?evtRelC aida:prototype ?evtRelProto .
+          ?mem1 aida:cluster ?evtRelC ;
+               aida:clusterMember ?evtRel .
+          ?entC aida:prototype ?entProto .
+          ?mem2 aida:cluster ?entC ;
+               aida:clusterMember ?ent .
+      }
       ?state rdf:subject ?evtRel ;
              rdf:predicate ?p ;
              rdf:object ?ent .

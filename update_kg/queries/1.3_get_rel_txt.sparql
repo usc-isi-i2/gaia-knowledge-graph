@@ -8,7 +8,7 @@
         ?r2 rdf:subject ?e ;
            rdf:predicate ?p ;
            rdf:object ?ent .
-        GRAPH <http://www.isi.com/superedge> {
+        GRAPH <http://www.isi.com/supergraph> {
             ?mem aida:cluster ?cluster ;
                 aida:clusterMember ?ent .
         }
