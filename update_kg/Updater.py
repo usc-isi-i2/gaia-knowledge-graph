@@ -210,10 +210,10 @@ class Updater(object):
         self.update.setQuery(self.prefix + q)
         print('  ', self.update.query().convert())
 
-    def upload_data(self, triple_list, graph='http://www.isi.edu/supergraph'):
+    def upload_data(self, triple_list):
         ep = self.endpoint + '/data'
-        if graph:
-            ep += ('?graph=' + graph)
+        if self.graph:
+            ep += ('?graph=' + self.graph)
         print('  start a post request on %s, with triple list length %d' % (ep, len(triple_list)))
         data = self.nt_prefix + '\n'.join(triple_list)
         r = requests.post(ep, data=data, headers={'Content-Type': 'text/turtle'})
