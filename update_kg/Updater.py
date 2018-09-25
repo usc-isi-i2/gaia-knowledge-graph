@@ -11,23 +11,23 @@ DUMP KG IF NEEDED
 3.1 insert SuperEdge
 DUMP KG IF NEEDED
 """
-import os
 import sys
 import json
 import random
 import string
 from datetime import datetime
 from SPARQLWrapper import SPARQLWrapper
-from pathlib import Path
 import requests
 sys.path.append("../gaia-clustering/multi_layer_network/src")
 from namespaces import namespaces, ENTITY_TYPE_STR
 sys.path.append("../gaia-clustering/multi_layer_network/test")
 import baseline2_exe, from_jsonhead2cluster
+sys.path.append(".")
+from sparqls import *
 
 
 class Updater(object):
-    def __init__(self, endpoint, outputs_prefix):
+    def __init__(self, endpoint, outputs_prefix, graph=None, has_jl=False):
         self.select = SPARQLWrapper(endpoint.rstrip('/') + '/query')
         self.select.setReturnFormat('json')
         self.update = SPARQLWrapper(endpoint.rstrip('/') + '/update')
@@ -39,9 +39,6 @@ class Updater(object):
         self.prefix = ''.join(['PREFIX %s: <%s>\n' % (abbr, full) for abbr, full in namespaces.items()])
         self.nt_prefix = ''.join(['@prefix %s: <%s> .\n' % (abbr, full) for abbr, full in namespaces.items()])
         self.system = 'http://www.isi.edu'
-        self.queries = {}
-        for f_name in os.listdir('queries'):
-            self.queries[f_name] = Path('queries/' + f_name).read_text()
 
         self.entity_json = {}
         self.event_json = {}
@@ -50,53 +47,68 @@ class Updater(object):
         self.event_jl = []
         self.relation_jl = []
 
-    def run(self, run_from_jl_file=False):
-        if run_from_jl_file:
+        self.graph = graph
+        self.has_jl = has_jl
+
+        if has_jl:
+            print("start loading entity jl", datetime.now().isoformat())
+            self.entity_jl = self.load_jl(self.outputs_prefix + 'entity.jl')
+            print("start loading event jl", datetime.now().isoformat())
+            self.event_jl = self.load_jl(self.outputs_prefix + 'event.jl')
+
+    def run_load_jl(self):
+        if self.has_jl:
             print("start loading entity jl", datetime.now().isoformat())
             self.entity_jl = self.load_jl(self.outputs_prefix + 'entity.jl')
             print("start loading event jl", datetime.now().isoformat())
             self.event_jl = self.load_jl(self.outputs_prefix + 'event.jl')
         else:
             self.generate_jl()
+        print("Done. ", datetime.now().isoformat())
 
+    def run_entity_nt(self):
         print("start inserting triples for entity clusters", datetime.now().isoformat())
         entity_nt = self.convert_jl_to_nt(self.entity_jl, 'aida:Entity', 'entities')
         self.upload_data(entity_nt)
+        print("Done. ", datetime.now().isoformat())
 
+    def run_event_nt(self):
         print("start inserting triples for event clusters", datetime.now().isoformat())
         event_nt = self.convert_jl_to_nt(self.event_jl, 'aida:Event', 'events')
         self.upload_data(event_nt)
+        print("Done. ", datetime.now().isoformat())
 
+    def run_relation_nt(self):
         print("start getting relation jl", datetime.now().isoformat())
         relation_jl = self.generate_relation_jl()
 
         print("start inserting triples for relation clusters", datetime.now().isoformat())
         relation_nt = self.convert_jl_to_nt(relation_jl, 'aida:Relation', 'relations')
         self.upload_data(relation_nt)
+        print("Done. ", datetime.now().isoformat())
 
+    def run_insert_proto(self):
         print("start inserting prototype name", datetime.now().isoformat())
-        insert_name = self.queries['2.1_proto_name.sparql']
+        insert_name = proto_name(self.graph)
         self.update_sparql(insert_name)
 
         print("start inserting prototype type(category)", datetime.now().isoformat())
-        insert_type = self.queries['2.2_proto_type.sparql']
+        insert_type = proto_type(self.graph)
         self.update_sparql(insert_type)
 
         print("start inserting prototype justification", datetime.now().isoformat())
-        insert_justi = self.queries['2.3_proto_justification.sparql']
+        insert_justi = proto_justi(self.graph)
         self.update_sparql(insert_justi)
-
-        print("Cluster Done. ", datetime.now().isoformat())
-        print('you can dump the kg to file and then insert superEdge by running this script with')
-        print('\t python update_txt_kg.py "%s" "%s" se ' % (self.endpoint, self.outputs_prefix))
+        print("Done. ", datetime.now().isoformat())
 
     def run_super_edge(self):
         print("start inserting superEdge", datetime.now().isoformat())
-        insert_se = self.queries['3.1_superedge.sparql']
+        insert_se = super_edge(self.graph)
         self.update_sparql(insert_se)
+        print("Done. ", datetime.now().isoformat())
 
     def get_json_head_entity(self):
-        ent_q = self.queries['1.1_get_entity_txt.sparql']
+        ent_q = get_entity()
         for x in self.select_bindings(ent_q)[1]:
             if 'linkTarget' in x:
                 link_target = x['linkTarget']['value']
@@ -117,7 +129,7 @@ class Updater(object):
             self.entity_json[x['e']['value']] = [name, x['type']['value'], link_target, txt_grained_type]
 
     def get_json_head_event(self):
-        evt_q = self.queries['1.2_get_event_txt.sparql']
+        evt_q = get_event()
         for x in self.select_bindings(evt_q)[1]:
             evt_uri = x['e']['value']
             if evt_uri not in self.event_json:
@@ -167,7 +179,7 @@ class Updater(object):
     def generate_relation_jl(self):
         groups = {}
         rel_json = {}
-        q = self.queries['1.3_get_rel_txt.sparql']
+        q = get_relation(self.graph)
         for x in self.select_bindings(q)[1]:
             rel_uri = x['e']['value']
             if rel_uri not in rel_json:
