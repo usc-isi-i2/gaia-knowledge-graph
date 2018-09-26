@@ -56,12 +56,6 @@ class Updater(object):
         self.graph = graph
         self.has_jl = has_jl
 
-        if has_jl:
-            print("start loading entity jl", datetime.now().isoformat())
-            self.entity_jl = self.load_jl(self.outputs_prefix + 'entity.jl')
-            print("start loading event jl", datetime.now().isoformat())
-            self.event_jl = self.load_jl(self.outputs_prefix + 'event.jl')
-
     def run_delete_ori(self):
         delete_ori = delete_ori_cluster()
         print("start delete original clusters", datetime.now().isoformat())
@@ -233,7 +227,7 @@ class Updater(object):
         data = self.nt_prefix + '\n'.join(triple_list)
         if self.graphdb:
             print('  start dump nt to file with triple list length %d' % len(triple_list))
-            with open(self.outputs_prefix + self.random_str(8) + '.nt') as f:
+            with open(self.outputs_prefix + self.random_str(8) + '.nt', 'w') as f:
                 f.write(data)
         else:
             ep = self.endpoint + '/data'
