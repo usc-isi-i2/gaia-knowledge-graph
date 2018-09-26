@@ -1,22 +1,22 @@
 import sys
 from Updater import Updater
 
-endpoint = input('Enter localhost with or without / (no route name like "update", "query")\n')
-output = input('Enter output folder with / \n')
-graph = input('Enter graph name \n')
-has_jl = input('Enter "True" if you has jl, otherwise press enter\n')
+endpoint = 'http://localhost:3030/run1_clean2'
+output = 'nas/home/dongyul/run1jl_new'
+graph = ''
+has_jl = 'True'
 print('---')
-print('you endpoint: ', endpoint)
-print('you output: ', output)
-print('you graph: ', graph)
-print('you has jl: ', has_jl)
+print('your endpoint: ', endpoint)
+print('your output: ', output)
+print('your graph: ', graph)
+print('your has jl: ', has_jl)
 print('---')
 
 steps = ['run_load_jl', 'run_delete_ori', 'run_entity_nt', 'run_event_nt', 'run_relation_nt', 'run_insert_proto', 'run_super_edge']
 
 print('\n'.join(['Step %d : %s ' % (i, steps[i]) for i in range(len(steps))]))
 
-start, end = input('Enter step range you want to run like "0,2"(inclusive)\n').split(',')
+start, end = '0', '6'
 print('your start end: ', start, end)
 
 up = Updater(endpoint, output, graph, True if has_jl == 'True' else False)

@@ -253,7 +253,11 @@ insert {
        rdf:subject ?evtRelProto ;
        rdf:predicate ?p ;
        rdf:object ?entProto ;
-       aida:count ?cnt .
+       aida:confidence [
+            a aida:Confidence ;
+            aida:confidenceValue (5/?cnt) ;
+            aida:system <http://www.isi.edu>
+       ]
     %s
 }
 where {

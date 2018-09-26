@@ -56,6 +56,12 @@ class Updater(object):
             print("start loading event jl", datetime.now().isoformat())
             self.event_jl = self.load_jl(self.outputs_prefix + 'event.jl')
 
+    def run_delete_ori(self):
+        delete_ori = delete_ori_cluster()
+        print("start delete original clusters", datetime.now().isoformat())
+        self.update_sparql(delete_ori)
+        print("Done. ", datetime.now().isoformat())
+
     def run_load_jl(self):
         if self.has_jl:
             print("start loading entity jl", datetime.now().isoformat())
