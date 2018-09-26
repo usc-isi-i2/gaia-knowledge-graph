@@ -1,8 +1,8 @@
 import sys
 from Updater import Updater
 
-endpoint = 'http://localhost:3030/run1_clean2'
-output = 'nas/home/dongyul/run1jl_new'
+endpoint = 'http://localhost:7200/repositories/run1_clean'
+output = '/nas/home/dongyul/run1jl_new/'
 graph = ''
 has_jl = 'True'
 print('---')

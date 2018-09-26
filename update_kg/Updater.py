@@ -28,9 +28,15 @@ from sparqls import *
 
 class Updater(object):
     def __init__(self, endpoint, outputs_prefix, graph=None, has_jl=False):
-        self.select = SPARQLWrapper(endpoint.rstrip('/') + '/query')
+        if '3030' in endpoint:
+            self.select = SPARQLWrapper(endpoint.rstrip('/') + '/query')
+            self.update = SPARQLWrapper(endpoint.rstrip('/') + '/update')
+            self.graphdb = False
+        else:
+            self.select = SPARQLWrapper(endpoint)
+            self.update = SPARQLWrapper(endpoint)
+            self.graphdb = True
         self.select.setReturnFormat('json')
-        self.update = SPARQLWrapper(endpoint.rstrip('/') + '/update')
         self.update.setMethod('POST')
         self.endpoint = endpoint.rstrip('/')
 
@@ -85,6 +91,8 @@ class Updater(object):
         print("start inserting triples for event clusters", datetime.now().isoformat())
         event_nt = self.convert_jl_to_nt(self.event_jl, 'aida:Event', 'events')
         self.upload_data(event_nt)
+        if self.graphdb:
+            input('upload nt and continue')
         print("Done. ", datetime.now().isoformat())
 
     def run_relation_nt(self):
@@ -94,6 +102,8 @@ class Updater(object):
         print("start inserting triples for relation clusters", datetime.now().isoformat())
         relation_nt = self.convert_jl_to_nt(relation_jl, 'aida:Relation', 'relations')
         self.upload_data(relation_nt)
+        if self.graphdb:
+            input('upload nt and continue')
         print("Done. ", datetime.now().isoformat())
 
     def run_insert_proto(self):
@@ -220,14 +230,19 @@ class Updater(object):
         print('  ', self.update.query().convert())
 
     def upload_data(self, triple_list):
-        ep = self.endpoint + '/data'
-        if self.graph:
-            ep += ('?graph=' + self.graph)
-        print('  start a post request on %s, with triple list length %d' % (ep, len(triple_list)))
         data = self.nt_prefix + '\n'.join(triple_list)
-        r = requests.post(ep, data=data, headers={'Content-Type': 'text/turtle'})
-        print('  response ', r.content)
-        return r.content
+        if self.graphdb:
+            print('  start dump nt to file with triple list length %d' % len(triple_list))
+            with open(self.outputs_prefix + self.random_str(8) + '.nt') as f:
+                f.write(data)
+        else:
+            ep = self.endpoint + '/data'
+            if self.graph:
+                ep += ('?graph=' + self.graph)
+            print('  start a post request on %s, with triple list length %d' % (ep, len(triple_list)))
+            r = requests.post(ep, data=data, headers={'Content-Type': 'text/turtle'})
+            print('  response ', r.content)
+            return r.content
 
     def wrap_membership(self, cluster, member):
         membership = '''
