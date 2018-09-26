@@ -60,6 +60,9 @@ class Updater(object):
         delete_ori = delete_ori_cluster()
         print("start delete original clusters", datetime.now().isoformat())
         self.update_sparql(delete_ori)
+        delete_ori_mem = delete_ori_clusterMember()
+        print("start delete original clusters Memberships", datetime.now().isoformat())
+        self.update_sparql(delete_ori_mem)
         print("Done. ", datetime.now().isoformat())
 
     def run_load_jl(self):

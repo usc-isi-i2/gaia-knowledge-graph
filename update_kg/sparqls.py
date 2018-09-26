@@ -15,10 +15,25 @@ PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 DELETE {
-    ?cluster a aida:SameAsCluster .
-    ?cluster aida:prototype ?prototype .
-    ?cluster aida:system ?system .
+    ?cluster a aida:SameAsCluster ;
+             aida:prototype ?prototype ;
+             aida:system ?system .
+}
+WHERE {
+    ?cluster a aida:SameAsCluster ;
+             aida:prototype ?prototype ;
+             aida:system ?system .
+}
+    '''
 
+
+def delete_ori_clusterMember():
+    return '''
+PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+DELETE {
     ?clusterMembership a aida:ClusterMembership ;
         aida:cluster ?cluster ;
         aida:clusterMember ?clusterMember ;
@@ -29,10 +44,6 @@ DELETE {
         aida:system ?sys_conf
 }
 WHERE {
-    ?cluster a aida:SameAsCluster .
-    ?cluster aida:prototype ?prototype .
-    ?cluster aida:system ?system .
-
     ?clusterMembership a aida:ClusterMembership ;
         aida:cluster ?cluster ;
         aida:clusterMember ?clusterMember ;
@@ -40,7 +51,7 @@ WHERE {
         aida:system ?sys .
     ?conf a aida:Confidence ;
         aida:confidenceValue ?cv ;
-        aida:system ?sys_conf
+        aida:system ?sys_conf .
 }
     '''
 
