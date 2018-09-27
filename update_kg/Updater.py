@@ -215,19 +215,25 @@ class Updater(object):
         return jl
 
     def select_bindings(self, q):
-        self.select.setQuery(self.prefix + q)
+        if self.graphdb:
+            self.select.setQuery('query=' + self.prefix + q)
+        else:
+            self.select.setQuery(self.prefix + q)
         ans = self.select.query().convert()
         return ans['head']['vars'], ans['results']['bindings']
 
     def update_sparql(self, q):
-        self.update.setQuery(self.prefix + q)
+        if self.graphdb:
+            self.update.setQuery('query=' + self.prefix + q)
+        else:
+            self.update.setQuery(self.prefix + q)
         print('  ', self.update.query().convert())
 
     def upload_data(self, triple_list):
         data = self.nt_prefix + '\n'.join(triple_list)
         if self.graphdb:
             print('  start dump nt to file with triple list length %d' % len(triple_list))
-            with open(self.outputs_prefix + self.random_str(8) + '.nt', 'w') as f:
+            with open(self.outputs_prefix + self.random_str(8) + '.ttl', 'w') as f:
                 f.write(data)
         else:
             ep = self.endpoint + '/data'
