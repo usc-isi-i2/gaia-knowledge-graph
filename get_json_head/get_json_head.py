@@ -10,6 +10,13 @@ sw = SPARQLWrapper('http://localhost:3030/test/sparql')
 sw.setReturnFormat(CSV)
 
 
+def select(q):
+    sw.setQuery(q)
+    rows = sw.query().convert().encode('utf-8').splitlines()[1:]
+    res = list(csv.reader(rows))
+    return res
+
+
 def randstr():
     return ''.join([random.choice(string.ascii_letters + string.digits) for _ in range(32)])
 
@@ -33,9 +40,7 @@ SELECT DISTINCT ?e ?type ?linkTarget WHERE {
 }
 '''
     print('start query ent type link', str(datetime.now()))
-    sw.setQuery(q)
-    rows = sw.query().convert().splitlines()[1:]
-    res = list(csv.reader(rows))
+    res = select(q)
     ent_json = {}
     print('start for loop', str(datetime.now()))
     dummy = 0
@@ -68,9 +73,7 @@ SELECT DISTINCT ?e ?name ?translate WHERE {
 }
 '''
     print('start query ent name translate', str(datetime.now()))
-    sw.setQuery(q)
-    rows = sw.query().convert().splitlines()[1:]
-    res = list(csv.reader(rows))
+    res = select(q)
     print('start for loop', str(datetime.now()))
     for line in res:
         e, name, translate = line
@@ -96,10 +99,8 @@ SELECT DISTINCT ?e ?c where {
      aida:clusterMember ?e .
 }
 '''
-    sw.setQuery(qc)
     print('start query cluster', str(datetime.now()))
-    rows = sw.query().convert().splitlines()[1:]
-    res = list(csv.reader(rows))
+    res = select(qc)
     print('start for loop cluster ', str(datetime.now()))
     cluster_json = {}
     for line in res:
@@ -111,20 +112,18 @@ SELECT DISTINCT ?e ?c where {
     qp = '''
 PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
 SELECT DISTINCT ?c ?p where {
-     ?c aida:prototype ?p .
+     ?c aida:prototype ?p  .
      ?p aida:justifiedBy ?jp .
 }
 '''
-    sw.setQuery(qp)
     print('start query proto', str(datetime.now()))
-    rows = sw.query().convert().splitlines()[1:]
-    res = list(csv.reader(rows))
+    res = select(qp)
     print('start for loop proto ', str(datetime.now()))
     for line in res:
         c, p = line
-    if c not in cluster_json:
-        cluster_json[c] = [[], []]
-    cluster_json[c][1].append(p)
+        if c not in cluster_json:
+            cluster_json[c] = [[], []]
+        cluster_json[c][1].append(p)
 
     print('start dump cluster', str(datetime.now()))
     with open('run1_cluster.json', 'w') as f2:
@@ -160,26 +159,20 @@ WHERE {
     }
 }
 '''
-    sw.setQuery(q_evt)
-    print('start fetch evt', str(datetime.now()))
-    res = sw.query().convert()['results']['bindings']
     evt_json = {}
+    print('start fetch evt', str(datetime.now()))
+    res = select(q_evt)
     print('start convert evt json', str(datetime.now()))
     for line in res:
-        evt_uri = line['e']['value']
-        _type = line['type']['value']
-        doc = line['doc']['value']
-        text = ''
-        if 'translate' in line:
-            text = line['translate']['value']
-        elif 'text' in line:
-            text = line['text']['value']
+        evt_uri, _type, doc, text, translate, ent = line
+        if translate:
+            text = translate
         if evt_uri not in evt_json:
             evt_json[evt_uri] = {'type': _type, 'doc': doc, 'text': [], 'entities': []}
         if text:
             evt_json[evt_uri]['text'].append(text)
-        if 'ent' in line:
-            evt_json[evt_uri]['entities'].append(line['ent']['value'])
+        if ent:
+            evt_json[evt_uri]['entities'].append(ent)
 
     print('write file', str(datetime.now()))
     with open('run1_event.json', 'w') as f:
