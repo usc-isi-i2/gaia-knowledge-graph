@@ -96,7 +96,7 @@ def get_one_by_one(ttl_path, output):
     with open(output + 'fail.log', 'w') as f:
         for ttl in ttls:
             if cnt % per == 0:
-                print('loading ... %d of %d' % (cnt, total))
+                print('loading ... %d of %d' % (cnt, total), str(datetime.now()))
             cnt += 1
             try:
                 selector = Selector(ttl)
@@ -112,6 +112,7 @@ def get_one_by_one(ttl_path, output):
     dump(output + 'entity.json', ent_json)
     dump(output + 'cluster.json', cluster_json)
     dump(output + 'event.json', evt_json)
+    print('ALL DONE', str(datetime.now()))
 
 
 _, ep, out = sys.argv

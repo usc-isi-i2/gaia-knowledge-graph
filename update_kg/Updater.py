@@ -85,8 +85,8 @@ class Updater(object):
         print("start inserting triples for event clusters", datetime.now().isoformat())
         event_nt = self.convert_jl_to_nt(self.event_jl, 'aida:Event', 'events')
         self.upload_data(event_nt)
-        if self.graphdb:
-            input('upload nt and continue')
+        # if self.graphdb:
+        #     input('upload nt and continue')
         print("Done. ", datetime.now().isoformat())
 
     def run_relation_nt(self):
@@ -96,8 +96,8 @@ class Updater(object):
         print("start inserting triples for relation clusters", datetime.now().isoformat())
         relation_nt = self.convert_jl_to_nt(relation_jl, 'aida:Relation', 'relations')
         self.upload_data(relation_nt)
-        if self.graphdb:
-            input('upload nt and continue')
+        # if self.graphdb:
+        #     input('upload nt and continue')
         print("Done. ", datetime.now().isoformat())
 
     def run_insert_proto(self):
@@ -232,17 +232,20 @@ class Updater(object):
     def upload_data(self, triple_list):
         data = self.nt_prefix + '\n'.join(triple_list)
         if self.graphdb:
-            print('  start dump nt to file with triple list length %d' % len(triple_list))
-            with open(self.outputs_prefix + self.random_str(8) + '.ttl', 'w') as f:
-                f.write(data)
+            # print('  start dump nt to file with triple list length %d' % len(triple_list))
+            # with open(self.outputs_prefix + self.random_str(8) + '.ttl', 'w') as f:
+            #     f.write(data)
+            ep = self.endpoint + '/statements'
+            if self.graph:
+                print('!!! not support graph now -- will insert into default graph !!!')
         else:
             ep = self.endpoint + '/data'
             if self.graph:
                 ep += ('?graph=' + self.graph)
-            print('  start a post request on %s, with triple list length %d' % (ep, len(triple_list)))
-            r = requests.post(ep, data=data, headers={'Content-Type': 'text/turtle'})
-            print('  response ', r.content)
-            return r.content
+        print('  start a post request on %s, with triple list length %d' % (ep, len(triple_list)))
+        r = requests.post(ep, data=data, headers={'Content-Type': 'text/turtle'})
+        print('  response ', r.content)
+        return r.content
 
     def wrap_membership(self, cluster, member):
         membership = '''

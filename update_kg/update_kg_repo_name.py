@@ -1,8 +1,10 @@
 import sys
 from Updater import Updater
 
-endpoint = 'http://localhost:7200/repositories/run1_clean'
-output = '/nas/home/dongyul/run1jl_new/'
+repo_name = sys.argv[1]
+
+endpoint = 'http://localhost:7200/repositories/' + repo_name
+output = '/nas/home/dongyul/jl_' + repo_name
 graph = ''
 has_jl = 'True'
 print('---')
@@ -16,7 +18,7 @@ steps = ['run_load_jl', 'run_entity_nt', 'run_event_nt', 'run_relation_nt', 'run
 
 print('\n'.join(['Step %d : %s ' % (i, steps[i]) for i in range(len(steps))]))
 
-start, end = '0', '5'
+start, end = '0', '4'
 print('your start end: ', start, end)
 
 up = Updater(endpoint, output, graph, True if has_jl == 'True' else False)
