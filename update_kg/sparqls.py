@@ -1,4 +1,3 @@
-GRAPH = 'http://www.isi.edu/ta2'
 
 
 def delete_all():
@@ -266,13 +265,13 @@ insert {
        rdf:object ?entProto ;
        aida:confidence [
             a aida:Confidence ;
-            aida:confidenceValue (5/?cnt) ;
+            aida:confidenceValue ?cnt ;
             aida:system <http://www.isi.edu>
        ]
     %s
 }
 where {
-  select ?evtRelProto ?p ?entProto (count(*) as ?cnt)
+  select ?evtRelProto ?p ?entProto ((1 - (1/(2*count(*)))) as ?cnt)
   where {
       %s
           ?evtRelC aida:prototype ?evtRelProto .
@@ -288,3 +287,35 @@ where {
   } groupby ?evtRelProto ?p ?entProto orderby desc(?cnt)
 }
 ''' % (open_clause, close_clause, open_clause, close_clause)
+
+
+def super_edge_justif(graph):
+    open_clause = close_clause = ''
+    if graph:
+        open_clause = 'GRAPH <%s> {' % graph
+        close_clause = '}'
+    return '''
+insert {
+    %s
+    ?r aida:justifiedBy ?j .
+    %s
+} where {
+    %s
+    ?r a rdf:Statement ;
+       rdf:subject ?evtRelProto ;
+       rdf:predicate ?p ;
+       rdf:object ?entProto .
+    ?evtCluster aida:prototype ?evtRelProto .
+    ?entCluster aida:prototype ?entProto .
+    ?mem1 aida:cluster ?evtCluster;
+          aida:clusterMember ?evt .
+    ?mem2 aida:cluster ?entCluster;
+          aida:clusterMember ?ent .
+    %s
+    ?r2 a rdf:Statement ;
+       rdf:subject ?evt ;
+       rdf:predicate ?p ;
+       rdf:object ?ent ;
+       aida:justifiedBy ?j .
+}
+    ''' % (open_clause, close_clause, open_clause, close_clause)

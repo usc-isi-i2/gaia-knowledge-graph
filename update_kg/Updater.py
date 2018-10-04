@@ -118,6 +118,9 @@ class Updater(object):
         print("start inserting superEdge", datetime.now().isoformat())
         insert_se = super_edge(self.graph)
         self.update_sparql(insert_se)
+        print("start inserting superEdge justifications", datetime.now().isoformat())
+        insert_se_justi = super_edge_justif(self.graph)
+        self.update_sparql(insert_se_justi)
         print("Done. ", datetime.now().isoformat())
 
     def get_json_head_entity(self):
@@ -224,10 +227,11 @@ class Updater(object):
 
     def update_sparql(self, q):
         if self.graphdb:
-            self.update.setQuery('query=' + self.prefix + q)
+            req_ = requests.post(self.endpoint + '/statements', params={'update': self.prefix + q})
+            print(req_, req_.content)
         else:
             self.update.setQuery(self.prefix + q)
-        print('  ', self.update.query().convert())
+            print('  ', self.update.query().convert())
 
     def upload_data(self, triple_list):
         data = self.nt_prefix + '\n'.join(triple_list)
