@@ -4,7 +4,7 @@ from Updater import Updater
 repo_name = sys.argv[1]
 
 endpoint = 'http://localhost:7200/repositories/' + repo_name
-output = '/nas/home/dongyul/jl_' + repo_name
+output = '/nas/home/dongyul/jl_' + repo_name + '/'
 graph = ''
 has_jl = 'True'
 print('---')
