@@ -6,7 +6,8 @@
 # x = sw.query().convert()
 # print(x)
 # exit()
-
+import sys
+sys.path.append('..')
 import json
 from json_head.Selector import Selector
 
@@ -24,6 +25,7 @@ def update_cur(n, t, l, cur):
     if n not in cur[t][l]:
         cur[t][l][n] = 0
     cur[t][l][n] += 1
+
 
 def get_ta1_clusters(ep):
     se = Selector(ep)
@@ -112,5 +114,39 @@ def get_proto(ep):
         json.dump(rows, f, indent=2, ensure_ascii=False)
 
 
-get_ta1_clusters('http://localhost:7200/repositories/1003r2nl')
+# get_ta1_clusters('http://gaiadev01.isi.edu:7200/repositories/1003r2nl')
 # get_ta2_rank('/Users/dongyuli/isi/jl_1003r1nl_2/entity_with_attr.jl')
+
+def get_ta1_links(ep):
+    se = Selector(ep)
+    rows = se.run('''
+    select distinct ?c ?e ?link where {
+        ?mem aida:cluster ?c ;
+             aida:clusterMember ?e .
+        ?e aida:link/aida:linkTarget ?link .
+    }''')
+
+    res = {}
+    for c, e, link in rows:
+        if c not in res:
+            res[c] = {}
+        if not link.split(':', 1)[-1].startswith('m.'):
+            link = 'others'
+        if link not in res[c]:
+            res[c][link] = []
+        res[c][link].append(e)
+
+    rank = []
+    for c, links in res.items():
+        rank.append({
+            'cluster_uri': c,
+            'cnt_link': len(links),
+            'links': links
+        })
+    rank.sort(key=lambda x: x['cnt_link'], reverse=True)
+    with open('ta1_links.json', 'w') as f:
+        json.dump(rank, f, indent=2, ensure_ascii=False)
+
+
+get_ta1_links('http://gaiadev01.isi.edu:7200/repositories/1003r2nl')
+
