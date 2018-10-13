@@ -1,0 +1,14 @@
+PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+SELECT DISTINCT ?c ?p ?e
+WHERE {
+    ?c a aida:SameAsCluster .
+    OPTIONAL {
+        ?c aida:prototype ?p .
+        ?p aida:justifiedBy ?j .
+    }
+    ?mem aida:cluster ?c ;
+         aida:clusterMember ?e .
+}
