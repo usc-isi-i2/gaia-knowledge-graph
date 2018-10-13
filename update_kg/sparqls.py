@@ -1,3 +1,4 @@
+import random, string
 
 
 def delete_all():
@@ -193,39 +194,42 @@ def proto_type(graph):
     return '''
 insert { 
     %s
-    [] a rdf:Statement ;
+    ?type_assertion a rdf:Statement ;
         rdf:subject ?prototype ;
         rdf:predicate rdf:type ;
         rdf:object ?t
     %s
 }
 where {
-    select ?prototype (max(?type1) as ?t)
-    where {
-      {
-        select ?prototype (max(?cnt) as ?max)
+    {
+        select ?prototype (max(?type1) as ?t)
         where {
-          select ?prototype ?type (count(?type) as ?cnt)
-          where {
-            %s
-                ?c aida:prototype ?prototype .
-                ?membership aida:cluster ?c ; aida:clusterMember ?e .
-            %s
-            ?x a rdf:Statement ; rdf:subject ?e ; rdf:predicate rdf:type ; rdf:object ?type .
-          } group by ?prototype ?type
+          {
+            select ?prototype (max(?cnt) as ?max)
+            where {
+              select ?prototype ?type (count(?type) as ?cnt)
+              where {
+                %s
+                    ?c aida:prototype ?prototype .
+                    ?membership aida:cluster ?c ; aida:clusterMember ?e .
+                %s
+                ?x a rdf:Statement ; rdf:subject ?e ; rdf:predicate rdf:type ; rdf:object ?type .
+              } group by ?prototype ?type
+            } group by ?prototype
+          }
+          {
+            select ?prototype ?type1 (count(?type1) as ?max)
+            where {
+                %s
+                    ?c1 aida:prototype ?prototype .
+                    ?membership1 aida:cluster ?c1 ; aida:clusterMember ?e1 .
+                %s
+                ?x a rdf:Statement ; rdf:subject ?e1 ; rdf:predicate rdf:type ; rdf:object ?type1 .
+            } group by ?prototype ?type1
+          }
         } group by ?prototype
-      }
-      {
-        select ?prototype ?type1 (count(?type1) as ?max)
-        where {
-            %s
-                ?c1 aida:prototype ?prototype .
-                ?membership1 aida:cluster ?c1 ; aida:clusterMember ?e1 .
-            %s
-            ?x a rdf:Statement ; rdf:subject ?e1 ; rdf:predicate rdf:type ; rdf:object ?type1 .
-        } group by ?prototype ?type1
-      }
-    } group by ?prototype
+    }
+    BIND( URI(CONCAT(STR(?prototype), "-type")) AS ?type_assertion )
 }''' % (open_clause, close_clause, open_clause, close_clause, open_clause, close_clause)
 
 
@@ -251,7 +255,32 @@ where {
 ''' % (open_clause, close_clause, open_clause, close_clause)
 
 
+def proto_type_assertion_justi(graph):
+    open_clause = close_clause = ''
+    if graph:
+        open_clause = 'GRAPH <%s> {' % graph
+        close_clause = '}'
+    return '''
+insert {
+    %s
+    ?r aida:justifiedBy ?j
+    %s
+    }
+where {
+    %s
+    ?x aida:prototype ?proto .
+    ?r a rdf:Statement ;
+       rdf:subject ?proto ;
+       rdf:predicate rdf:type ;
+       rdf:object ?proto_type .
+    ?proto aida:justifiedBy ?j .
+    %s
+}
+''' % (open_clause, close_clause, open_clause, close_clause)
+
+
 def super_edge(graph):
+    uri_suffix = ''.join([random.choice(string.ascii_letters + string.digits) for _ in range(16)])
     open_clause = close_clause = ''
     if graph:
         open_clause = 'GRAPH <%s> {' % graph
@@ -271,22 +300,25 @@ insert {
     %s
 }
 where {
-  select ?evtRelProto ?p ?entProto ((1 - (1/(2*count(*)))) as ?cnt)
-  where {
-      %s
-          ?evtRelC aida:prototype ?evtRelProto .
-          ?mem1 aida:cluster ?evtRelC ;
-               aida:clusterMember ?evtRel .
-          ?entC aida:prototype ?entProto .
-          ?mem2 aida:cluster ?entC ;
-               aida:clusterMember ?ent .
-      %s
-      ?state rdf:subject ?evtRel ;
-             rdf:predicate ?p ;
-             rdf:object ?ent .
-  } groupby ?evtRelProto ?p ?entProto orderby desc(?cnt)
+  {
+      select ?evtRelProto ?p ?entProto ((1 - (1/(2*count(*)))) as ?cnt)
+      where {
+          %s
+              ?evtRelC aida:prototype ?evtRelProto .
+              ?mem1 aida:cluster ?evtRelC ;
+                   aida:clusterMember ?evtRel .
+              ?entC aida:prototype ?entProto .
+              ?mem2 aida:cluster ?entC ;
+                   aida:clusterMember ?ent .
+          %s
+          ?state rdf:subject ?evtRel ;
+                 rdf:predicate ?p ;
+                 rdf:object ?ent .
+      } groupby ?evtRelProto ?p ?entProto orderby desc(?cnt)
+  }
+  BIND( URI(CONCAT(STR(?p), "-%s")) AS ?type_assertion )
 }
-''' % (open_clause, close_clause, open_clause, close_clause)
+''' % (open_clause, close_clause, open_clause, close_clause, uri_suffix)
 
 
 def super_edge_justif(graph):

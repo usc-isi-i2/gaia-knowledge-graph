@@ -112,12 +112,17 @@ class Updater(object):
         print("start inserting prototype justification", datetime.now().isoformat())
         insert_justi = proto_justi(self.graph)
         self.update_sparql(insert_justi)
+
+        print("start inserting prototype type-assertion justification", datetime.now().isoformat())
+        insert_type_justi = proto_type_assertion_justi(self.graph)
+        self.update_sparql(insert_type_justi)
         print("Done. ", datetime.now().isoformat())
 
     def run_super_edge(self):
         print("start inserting superEdge", datetime.now().isoformat())
         insert_se = super_edge(self.graph)
         self.update_sparql(insert_se)
+
         print("start inserting superEdge justifications", datetime.now().isoformat())
         insert_se_justi = super_edge_justif(self.graph)
         self.update_sparql(insert_se_justi)
