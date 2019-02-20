@@ -224,7 +224,7 @@ class Updater(object):
 
     def select_bindings(self, q):
         if self.graphdb:
-            self.select.setQuery('query=' + self.prefix + q)
+            self.select.setQuery(self.prefix + q)
         else:
             self.select.setQuery(self.prefix + q)
         ans = self.select.query().convert()

@@ -24,5 +24,3 @@ runs = [up.run_load_jl, up.run_delete_ori, up.run_entity_nt, up.run_event_nt, up
 
 for i in range(int(start), int(end)+1):
     runs[i]()
-
-

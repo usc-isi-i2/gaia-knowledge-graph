@@ -1,3 +1,7 @@
 requests>=2.19.0
 rdflib
 SPARQLWrapper
+networkx
+requests
+jellyfish
+pyenchant
