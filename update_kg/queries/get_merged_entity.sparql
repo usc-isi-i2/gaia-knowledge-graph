@@ -10,8 +10,10 @@ SELECT DISTINCT ?e ?type ?name ?translate ?c ?linkTarget ?txt_grained_type ?vect
            rdf:predicate rdf:type ;
            rdf:object ?type .
     OPTIONAL {
-        ?e aida:hasName ?name ;
-           aida:link/aida:linkTarget ?linkTarget .
+        ?e aida:link/aida:linkTarget ?linkTarget .
+        OPTIONAL {
+            ?e aida:hasName ?name .
+        }
         OPTIONAL {
             ?e aida:justifiedBy [
                 skos:prefLabel ?name ;
@@ -32,7 +34,8 @@ SELECT DISTINCT ?e ?type ?name ?translate ?c ?linkTarget ?txt_grained_type ?vect
         ?mem aida:cluster ?c ;
              aida:clusterMember ?e .
         OPTIONAL {
-            ?c aida:prototype/aida:link/aida:linkTarget ?linkTarget .
+            ?c aida:prototype ?p .
+            ?p aida:link/aida:linkTarget ?linkTarget .
         }
     }
     OPTIONAL {

@@ -1,9 +1,0 @@
-insert {
-    ?p aida:justifiedBy ?j .
-}
-where {
-    ?c aida:prototype ?p .
-    ?mem aida:cluster ?c ;
-         aida:clusterMember ?x .
-    ?x aida:justifiedBy ?j .
-}

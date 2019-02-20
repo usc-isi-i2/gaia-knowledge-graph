@@ -6,24 +6,20 @@ SELECT DISTINCT ?e ?name ?translate ?type ?linkTarget
 WHERE {
     ?e a aida:Entity .
     OPTIONAL {
-        {
-           ?e aida:hasName ?name .
-        } UNION {
-           ?e aida:textValue ?name .
-        }
+       ?e aida:hasName ?name .
     }
     OPTIONAL {
        ?e aida:link/aida:linkTarget ?linkTarget .
+    }
+    OPTIONAL {
+        ?e aida:link/aida:privateData [
+             aida:jsonContent ?txt_grained_type ;
+             aida:system <http://www.rpi.edu/EDL_FineGrained>
+        ]
     }
     ?r a rdf:Statement ;
         rdf:subject ?e ;
         rdf:predicate rdf:type ;
         rdf:object ?type .
-    OPTIONAL {
-        ?e aida:justifiedBy ?j .
-        ?j skos:prefLabel ?name ;
-            aida:privateData ?pd .
-        ?pd aida:jsonContent ?translate ;
-            aida:system <http://www.rpi.edu/EDL_Translation>
-    }
+    aida:justifiedBy ?j .
 }
