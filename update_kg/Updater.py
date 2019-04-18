@@ -44,7 +44,7 @@ class Updater(object):
 
         self.prefix = ''.join(['PREFIX %s: <%s>\n' % (abbr, full) for abbr, full in namespaces.items()])
         self.nt_prefix = ''.join(['@prefix %s: <%s> .\n' % (abbr, full) for abbr, full in namespaces.items()])
-        self.system = 'http://www.isi.edu'
+        self.system = 'http://www.isi.edu/TA2'
 
         self.entity_json = {}
         self.event_json = {}
@@ -73,6 +73,12 @@ class Updater(object):
             self.event_jl = self.load_jl(self.outputs_prefix + 'event.jl')
         else:
             self.generate_jl()
+        print("Done. ", datetime.now().isoformat())
+
+    def run_system(self):
+        print("start inserting system", datetime.now().isoformat())
+        insert_system = system()
+        self.upload_data([insert_system])
         print("Done. ", datetime.now().isoformat())
 
     def run_entity_nt(self):
@@ -189,7 +195,7 @@ class Updater(object):
     def convert_jl_to_nt(self, jl, aida_type, key_type):
         res = []
         for line in jl:
-            members = line[key_type]
+            members = line
             cluster_uri = '%s-cluster' % members[0]
             prototype_uri = '%s-prototype' % members[0]
             res.append(self.wrap_cluster(cluster_uri, prototype_uri, aida_type))
@@ -215,7 +221,7 @@ class Updater(object):
                 groups[attr] = []
             groups[attr].append(rel)
 
-        jl = [{'relations': v} for v in groups.values()]
+        jl = [v for v in groups.values()]
         with open(self.outputs_prefix + 'relation.jl', 'w') as f:
             for line in jl:
                 json.dump(line, f)
@@ -224,7 +230,7 @@ class Updater(object):
 
     def select_bindings(self, q):
         if self.graphdb:
-            self.select.setQuery('query=' + self.prefix + q)
+            self.select.setQuery(self.prefix + q)
         else:
             self.select.setQuery(self.prefix + q)
         ans = self.select.query().convert()

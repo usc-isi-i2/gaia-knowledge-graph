@@ -10,9 +10,9 @@ WHERE {?s ?p ?o}
 
 def delete_ori_cluster():
     return '''
-PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
-PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+# PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
+# PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+# PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 DELETE {
     ?cluster a aida:SameAsCluster ;
@@ -29,9 +29,9 @@ WHERE {
 
 def delete_ori_clusterMember():
     return '''
-PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
-PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+# PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
+# PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+# PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 DELETE {
     ?clusterMembership a aida:ClusterMembership ;
@@ -143,6 +143,8 @@ def get_relation(graph):
     }
     ''' % (open_clause, close_clause)
 
+def system():
+    return '''<http://www.isi.edu/TA2> a aida:System .'''
 
 def proto_name(graph):
     open_clause = close_clause = ''
@@ -295,13 +297,13 @@ insert {
        aida:confidence [
             a aida:Confidence ;
             aida:confidenceValue ?cnt ;
-            aida:system <http://www.isi.edu>
-       ]
+            aida:system <http://www.isi.edu/TA2>
+       ] .
     %s
 }
 where {
   {
-      select ?evtRelProto ?p ?entProto ((1 - (1/(2*count(*)))) as ?cnt)
+      select ?evtRelProto ?p ?entProto (xsd:double(1 - (1/(2*count(*)))) as ?cnt)
       where {
           %s
               ?evtRelC aida:prototype ?evtRelProto .
