@@ -12,22 +12,25 @@ DUMP KG IF NEEDED
 DUMP KG IF NEEDED
 """
 import sys
+import os
 import json
 import random
 import string
 from datetime import datetime
 from SPARQLWrapper import SPARQLWrapper
 import requests
-sys.path.append("../gaia-clustering/multi_layer_network/src")
+mln_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../gaia-clustering/multi_layer_network/src')
+sys.path.append(mln_path)
 from namespaces import namespaces, ENTITY_TYPE_STR
-sys.path.append("../gaia-clustering/multi_layer_network/test")
+mln_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../gaia-clustering/multi_layer_network/test')
+sys.path.append(mln_path)
 import baseline2_exe, from_jsonhead2cluster
 sys.path.append(".")
 from sparqls import *
 
 
 class Updater(object):
-    def __init__(self, endpoint, outputs_prefix, graph=None, has_jl=False):
+    def __init__(self, endpoint, name, outdir, graph=None, has_jl=False):
         if '3030' in endpoint:
             self.select = SPARQLWrapper(endpoint.rstrip('/') + '/query')
             self.update = SPARQLWrapper(endpoint.rstrip('/') + '/update')
@@ -40,7 +43,8 @@ class Updater(object):
         self.update.setMethod('POST')
         self.endpoint = endpoint.rstrip('/')
 
-        self.outputs_prefix = outputs_prefix
+        self.outdir = outdir
+        self.name = name
 
         self.prefix = ''.join(['PREFIX %s: <%s>\n' % (abbr, full) for abbr, full in namespaces.items()])
         self.nt_prefix = ''.join(['@prefix %s: <%s> .\n' % (abbr, full) for abbr, full in namespaces.items()])
@@ -68,9 +72,9 @@ class Updater(object):
     def run_load_jl(self):
         if self.has_jl:
             print("start loading entity jl", datetime.now().isoformat())
-            self.entity_jl = self.load_jl(self.outputs_prefix + 'entity.jl')
+            self.entity_jl = self.load_jl(self.outdir + '/entity-clusters.jl')
             print("start loading event jl", datetime.now().isoformat())
-            self.event_jl = self.load_jl(self.outputs_prefix + 'event.jl')
+            self.event_jl = self.load_jl(self.outdir + '/event-clusters.jl')
         else:
             self.generate_jl()
         print("Done. ", datetime.now().isoformat())
@@ -188,9 +192,9 @@ class Updater(object):
         # run Xin's clustering scripts
 
         print("start getting entity jl", datetime.now().isoformat())
-        self.entity_jl, entity_edgelist_G = from_jsonhead2cluster.run(self.entity_json, self.outputs_prefix)
+        self.entity_jl, entity_edgelist_G = from_jsonhead2cluster.run(self.entity_json, self.name)
         print("start getting event jl", datetime.now().isoformat())
-        self.entity_jl = baseline2_exe.run(entity_edgelist_G, self.entity_json, self.event_json, self.outputs_prefix)
+        self.entity_jl = baseline2_exe.run(entity_edgelist_G, self.entity_json, self.event_json, self.name)
 
     def convert_jl_to_nt(self, jl, aida_type, key_type):
         res = []
@@ -222,7 +226,7 @@ class Updater(object):
             groups[attr].append(rel)
 
         jl = [v for v in groups.values()]
-        with open(self.outputs_prefix + 'relation.jl', 'w') as f:
+        with open(self.outdir + '/relation-clusters.jl', 'w') as f:
             for line in jl:
                 json.dump(line, f)
                 f.write('\n')
@@ -248,7 +252,7 @@ class Updater(object):
         data = self.nt_prefix + '\n'.join(triple_list)
         if self.graphdb:
             # print('  start dump nt to file with triple list length %d' % len(triple_list))
-            # with open(self.outputs_prefix + self.random_str(8) + '.ttl', 'w') as f:
+            # with open(self.name + self.random_str(8) + '.ttl', 'w') as f:
             #     f.write(data)
             ep = self.endpoint + '/statements'
             if self.graph:
