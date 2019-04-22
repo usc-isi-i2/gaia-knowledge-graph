@@ -143,8 +143,18 @@ def get_relation(graph):
     }
     ''' % (open_clause, close_clause)
 
-def system():
-    return '''<http://www.isi.edu/TA2> a aida:System .'''
+
+def system(graph):
+    open_clause = close_clause = ''
+    if graph:
+        open_clause = 'GRAPH <%s> {' % graph
+        close_clause = '}'
+    return '''
+    %s
+    <http://www.isi.edu/TA2> a aida:System .
+    %s
+    ''' % (open_clause, close_clause)
+
 
 def proto_name(graph):
     open_clause = close_clause = ''

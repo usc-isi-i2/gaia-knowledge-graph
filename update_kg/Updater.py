@@ -30,7 +30,7 @@ from sparqls import *
 
 
 class Updater(object):
-    def __init__(self, endpoint, name, outdir, graph=None, has_jl=False):
+    def __init__(self, endpoint, name, outdir, graph, has_jl=False):
         if '3030' in endpoint:
             self.select = SPARQLWrapper(endpoint.rstrip('/') + '/query')
             self.update = SPARQLWrapper(endpoint.rstrip('/') + '/update')
@@ -81,7 +81,7 @@ class Updater(object):
 
     def run_system(self):
         print("start inserting system", datetime.now().isoformat())
-        insert_system = system()
+        insert_system = system(self.graph)
         self.upload_data([insert_system])
         print("Done. ", datetime.now().isoformat())
 
@@ -254,9 +254,10 @@ class Updater(object):
             # print('  start dump nt to file with triple list length %d' % len(triple_list))
             # with open(self.name + self.random_str(8) + '.ttl', 'w') as f:
             #     f.write(data)
-            ep = self.endpoint + '/statements'
-            if self.graph:
-                print('!!! not support graph now -- will insert into default graph !!!')
+            # ep = self.endpoint + '/statements'
+            # if self.graph:
+            #     print('!!! not support graph now -- will insert into default graph !!!')
+            ep = self.endpoint + '/rdf-graphs/service?graph=' + self.graph
         else:
             ep = self.endpoint + '/data'
             if self.graph:
