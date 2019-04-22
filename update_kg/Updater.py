@@ -251,13 +251,11 @@ class Updater(object):
     def upload_data(self, triple_list):
         data = self.nt_prefix + '\n'.join(triple_list)
         if self.graphdb:
-            # print('  start dump nt to file with triple list length %d' % len(triple_list))
-            # with open(self.name + self.random_str(8) + '.ttl', 'w') as f:
-            #     f.write(data)
-            # ep = self.endpoint + '/statements'
-            # if self.graph:
-            #     print('!!! not support graph now -- will insert into default graph !!!')
-            ep = self.endpoint + '/rdf-graphs/service?graph=' + self.graph
+            if self.graph:
+                #     print('!!! not support graph now -- will insert into default graph !!!')
+                ep = self.endpoint + '/rdf-graphs/service?graph=' + self.graph
+            else:
+                ep = self.endpoint + '/statements'
         else:
             ep = self.endpoint + '/data'
             if self.graph:
