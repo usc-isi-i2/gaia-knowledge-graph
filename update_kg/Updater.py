@@ -18,6 +18,7 @@ import random
 import string
 from datetime import datetime
 from SPARQLWrapper import SPARQLWrapper
+from rdflib.plugins.stores.sparqlstore import SPARQLStore
 import requests
 mln_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../gaia-clustering/multi_layer_network/src')
 sys.path.append(mln_path)
@@ -60,6 +61,23 @@ class Updater(object):
         self.graph = graph
         self.has_jl = has_jl
 
+        self.all_entities = []
+        self.all_events = []
+        self.all_relations = []
+
+        query = get_all_entities()
+        for e in self.select_bindings(query)[1]:
+            self.all_entities.append(e['e']['value'])
+
+        query = get_all_events()
+        for e in self.select_bindings(query)[1]:
+            self.all_events.append(e['e']['value'])
+
+        query = get_all_relations()
+        for e in self.select_bindings(query)[1]:
+            self.all_relations.append(e['e']['value'])
+            # print(e['e']['value'])
+
     def run_delete_ori(self):
         delete_ori = delete_ori_cluster()
         print("start delete original clusters", datetime.now().isoformat())
@@ -73,8 +91,19 @@ class Updater(object):
         if self.has_jl:
             print("start loading entity jl", datetime.now().isoformat())
             self.entity_jl = self.load_jl(self.outdir + '/entity-clusters.jl')
+
+            # create singleton clusters for entities without cluster
+            for e in self.all_entities:
+                if not any(e in x for x in self.entity_jl): # entity not in a cluster
+                    self.entity_jl.append([e])
+
             print("start loading event jl", datetime.now().isoformat())
             self.event_jl = self.load_jl(self.outdir + '/event-clusters.jl')
+
+            # create singleton clusters for events without cluster
+            for e in self.all_events:
+                if not any(e in x for x in self.event_jl):  # event not in a cluster
+                    self.event_jl.append([e])
         else:
             self.generate_jl()
         print("Done. ", datetime.now().isoformat())
@@ -101,10 +130,15 @@ class Updater(object):
 
     def run_relation_nt(self):
         print("start getting relation jl", datetime.now().isoformat())
-        relation_jl = self.generate_relation_jl()
+        self.relation_jl = self.generate_relation_jl()
+
+        # create singleton clusters for relations without clusters
+        for e in self.all_relations:
+            if not any(e in x for x in self.relation_jl):  # relation not in a cluster
+                self.relation_jl.append([e])
 
         print("start inserting triples for relation clusters", datetime.now().isoformat())
-        relation_nt = self.convert_jl_to_nt(relation_jl, 'aida:Relation', 'relations')
+        relation_nt = self.convert_jl_to_nt(self.relation_jl, 'aida:Relation', 'relations')
         self.upload_data(relation_nt)
         # if self.graphdb:
         #     input('upload nt and continue')

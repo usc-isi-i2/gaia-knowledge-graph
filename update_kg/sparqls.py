@@ -56,6 +56,33 @@ WHERE {
     '''
 
 
+def get_all_entities():
+    return '''
+    SELECT ?e
+    WHERE {
+        ?e a aida:Entity .
+    }
+    '''
+
+
+def get_all_events():
+    return '''
+    SELECT ?e
+    WHERE {
+        ?e a aida:Event .
+    }
+    '''
+
+
+def get_all_relations():
+    return '''
+    SELECT ?e
+    WHERE {
+        ?e a aida:Relation .
+    }
+    '''
+
+
 def get_entity():
     return '''
 PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
