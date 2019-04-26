@@ -110,7 +110,7 @@ class Updater(object):
 
     def run_system(self):
         print("start inserting system", datetime.now().isoformat())
-        insert_system = system(self.graph)
+        insert_system = system()
         self.upload_data([insert_system])
         print("Done. ", datetime.now().isoformat())
 
