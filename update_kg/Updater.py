@@ -238,6 +238,7 @@ class Updater(object):
             prototype_uri = '%s-prototype' % members[0]
             res.append(self.wrap_cluster(cluster_uri, prototype_uri, aida_type))
             memberships = '\n'.join([self.wrap_membership(cluster_uri, m) for m in members])
+            memberships += '\n' + self.wrap_membership(cluster_uri, prototype_uri)
             res.append(memberships)
         return res
 

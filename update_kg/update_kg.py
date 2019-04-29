@@ -22,7 +22,14 @@ start, end = input('Enter step range you want to run like "0,2"(inclusive)\n').s
 print('your start end: ', start, end)
 
 up = Updater(endpoint, name, output, graph, True if has_jl == 'True' else False)
-runs = [up.run_load_jl, up.run_delete_ori, up.run_system, up.run_entity_nt, up.run_event_nt, up.run_relation_nt, up.run_insert_proto, up.run_super_edge]
+runs = [up.run_load_jl,
+        up.run_delete_ori,
+        up.run_system,
+        up.run_entity_nt,
+        up.run_event_nt,
+        up.run_relation_nt,
+        up.run_insert_proto,
+        up.run_super_edge]
 
 for i in range(int(start), int(end)+1):
     runs[i]()
