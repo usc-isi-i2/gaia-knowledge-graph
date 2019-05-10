@@ -119,6 +119,72 @@ WHERE {
 '''
 
 
+def get_cluster_inf_just(cluster_uri):
+    return '''
+        select *
+        where { 
+            ?membership a aida:ClusterMembership .
+            ?membership aida:cluster <%s> .
+            ?membership aida:clusterMember ?member .
+            ?membership aida:confidence ?member_confidence .
+            ?member_confidence aida:confidenceValue ?member_confidence_value .
+            ?member aida:informativeJustification ?informative_justification.
+            ?informative_justification a ?just_type .
+            ?informative_justification aida:source ?just_source .
+            ?informative_justification aida:sourceDocument ?just_doc .
+            ?informative_justification aida:confidence ?just_confidence .
+            ?just_confidence aida:confidenceValue ?just_confidence_value .
+            OPTIONAL {
+                   ?informative_justification a                           aida:TextJustification .
+                   ?informative_justification aida:startOffset            ?so .
+                   ?informative_justification aida:endOffsetInclusive     ?eo
+            }
+            OPTIONAL {
+                   ?informative_justification a                           aida:ImageJustification .
+                   ?informative_justification aida:boundingBox            ?bb  .
+                   ?bb                aida:boundingBoxUpperLeftX  ?ulx .
+                   ?bb                aida:boundingBoxUpperLeftY  ?uly .
+                   ?bb                aida:boundingBoxLowerRightX ?lrx .
+                   ?bb                aida:boundingBoxLowerRightY ?lry
+            }
+            OPTIONAL {
+                   ?informative_justification a                           aida:KeyFrameVideoJustification .
+                   ?informative_justification aida:keyFrame               ?kfid .
+                   ?informative_justification aida:boundingBox            ?bb  .
+                   ?bb                aida:boundingBoxUpperLeftX  ?ulx .
+                   ?bb                aida:boundingBoxUpperLeftY  ?uly .
+                   ?bb                aida:boundingBoxLowerRightX ?lrx .
+                   ?bb                aida:boundingBoxLowerRightY ?lry
+            }
+            OPTIONAL {
+                   ?informative_justification a                           aida:ShotVideoJustification .
+                   ?informative_justification aida:shot                   ?sid
+            }
+            OPTIONAL {
+                   ?informative_justification a                           aida:AudioJustification .
+                   ?informative_justification aida:startTimestamp         ?st .
+                   ?informative_justification aida:endTimestamp           ?et
+            }
+        } 
+    ''' % cluster_uri
+
+
+def get_cluster_link(cluster_uri):
+    return '''
+SELECT *
+WHERE { 
+    ?membership aida:cluster <%s> .
+    ?membership aida:clusterMember ?member .
+    ?member a aida:Entity .
+    ?member aida:link ?ref_kb_link .
+    ?ref_kb_link a aida:LinkAssertion .
+    ?ref_kb_link aida:linkTarget ?link_target .
+    ?ref_kb_link aida:confidence ?link_confidence .
+    ?link_confidence aida:confidenceValue ?link_cv .
+} 
+    ''' % cluster_uri
+
+
 def get_event():
     return '''
 PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>

@@ -118,6 +118,12 @@ class Updater(object):
         print("start inserting triples for entity clusters", datetime.now().isoformat())
         entity_nt = self.convert_jl_to_nt(self.entity_jl, 'aida:Entity', 'entities')
         self.upload_data(entity_nt)
+        print("start inserting triples for entity clusters informative justification", datetime.now().isoformat())
+        inf_just_nt = self.generate_entity_cluster_inf_just(self.entity_jl)
+        with open('queries.txt', 'w') as f:
+            for x in inf_just_nt:
+                f.write(x)
+        self.upload_data(inf_just_nt)
         print("Done. ", datetime.now().isoformat())
 
     def run_event_nt(self):
@@ -240,6 +246,56 @@ class Updater(object):
             memberships = '\n'.join([self.wrap_membership(cluster_uri, m) for m in members])
             memberships += '\n' + self.wrap_membership(cluster_uri, prototype_uri)
             res.append(memberships)
+        return res
+
+    def generate_entity_cluster_inf_just(self, jl):
+        res = []
+        for line in jl:
+            docs = []
+            targets = []
+            members = line
+            cluster_uri = '%s-cluster' % members[0]
+            query1 = get_cluster_inf_just(cluster_uri)
+            query2 = get_cluster_link(cluster_uri)
+            # for now, pick the first one just_doc, and assume text
+            for x in self.select_bindings(query1)[1]:
+                if x['just_doc']['value'] not in docs:
+                    docs.append(x['just_doc']['value'])
+                    just_type = x['just_type']['value']
+                    just_doc = x['just_doc']['value']
+                    just_source = x['just_source']['value']
+                    just_so = x['so']['value']
+                    just_eo = x['eo']['value']
+                    inf_just = '''
+                        <%s> aida:informativeJustification [
+                            a <%s> ;
+                            aida:source "%s" ;
+                            aida:sourceDocument "%s" ;
+                            aida:confidence [
+                                a aida:Confidence ;
+                                aida:confidenceValue  "1.0"^^xsd:double ;
+                                aida:system <%s> ] ;
+                            aida:startOffset  "%s";
+                            aida:endOffsetInclusive "%s" ;
+                            aida:system <%s> ] .
+                    ''' % (cluster_uri, just_type, just_source, just_doc, self.system, just_so, just_eo, self.system)
+                    res.append(inf_just)
+
+            for x in self.select_bindings(query2)[1]:
+                link_target = x['link_target']['value']
+                if link_target not in targets:
+                    targets.append(link_target)
+                    link = '''
+                        <%s> aida:link [
+                            a aida:LinkAssertion ;
+                            aida:linkTarget "%s" ;
+                            aida:confidence [
+                                a aida:Confidence ;
+                                aida:confidenceValue  "1.0"^^xsd:double ;
+                                aida:system <%s> ] ;
+                            aida:system <%s> ] .
+                    ''' % (cluster_uri, link_target, self.system, self.system)
+                    res.append(link)
         return res
 
     def generate_relation_jl(self):
