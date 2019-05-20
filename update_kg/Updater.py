@@ -87,10 +87,10 @@ class Updater(object):
         self.update_sparql(delete_ori_mem)
         print("Done. ", datetime.now().isoformat())
 
-    def run_load_jl(self):
+    def run_load_jl(self, entity_clusters='entity-clusters.jl', event_clusters='event-clusters.jl'):
         if self.has_jl:
             print("start loading entity jl", datetime.now().isoformat())
-            self.entity_jl = self.load_jl(self.outdir + '/entity-clusters.jl')
+            self.entity_jl = self.load_jl(self.outdir + '/' + entity_clusters)
 
             # create singleton clusters for entities without cluster
             for e in self.all_entities:
@@ -98,7 +98,7 @@ class Updater(object):
                     self.entity_jl.append([e])
 
             print("start loading event jl", datetime.now().isoformat())
-            self.event_jl = self.load_jl(self.outdir + '/event-clusters.jl')
+            self.event_jl = self.load_jl(self.outdir + '/' + event_clusters)
 
             # create singleton clusters for events without cluster
             for e in self.all_events:
