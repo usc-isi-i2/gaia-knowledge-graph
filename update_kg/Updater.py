@@ -120,9 +120,9 @@ class Updater(object):
         self.upload_data(entity_nt)
         print("start inserting triples for entity clusters informative justification", datetime.now().isoformat())
         inf_just_nt = self.generate_entity_cluster_inf_just(self.entity_jl)
-        with open('queries.txt', 'w') as f:
-            for x in inf_just_nt:
-                f.write(x)
+        # with open('queries.txt', 'w') as f:
+        #     for x in inf_just_nt:
+        #         f.write(x)
         self.upload_data(inf_just_nt)
         print("Done. ", datetime.now().isoformat())
 
