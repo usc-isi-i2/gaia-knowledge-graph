@@ -251,21 +251,27 @@ class Updater(object):
     def generate_entity_cluster_inf_just(self, jl):
         res = []
         for line in jl:
-            docs = []
-            targets = []
+            ij_by_doc = {}  # ij for each doc with the highest confidence
             members = line
             cluster_uri = '%s-cluster' % members[0]
             query1 = get_cluster_inf_just(cluster_uri)
             query2 = get_cluster_link(cluster_uri)
-            # for now, pick the first one just_doc, and assume text
             for x in self.select_bindings(query1)[1]:
-                if x['just_doc']['value'] not in docs:
-                    docs.append(x['just_doc']['value'])
-                    just_type = x['just_type']['value']
-                    just_doc = x['just_doc']['value']
-                    just_source = x['just_source']['value']
-                    just_so = x['so']['value']
-                    just_eo = x['eo']['value']
+                doc_id = x['just_doc']['value']
+                conf = x['just_confidence_value']['value']
+                if doc_id not in ij_by_doc:
+                    ij_by_doc[doc_id] = x
+                else:  # replace existing if higher confidence value
+                    if float(conf) > float(ij_by_doc[doc_id]['just_confidence_value']['value']):
+                        ij_by_doc[doc_id] = x
+            for _, ij in ij_by_doc.items():
+                just_type = ij['just_type']['value']
+                just_doc = ij['just_doc']['value']
+                just_source = ij['just_source']['value']
+                just_cv = ij['just_confidence_value']['value']
+                if 'so' in ij:  # text justification
+                    just_so = ij['so']['value']
+                    just_eo = ij['eo']['value']
                     inf_just = '''
                         <%s> aida:informativeJustification [
                             a <%s> ;
@@ -273,29 +279,118 @@ class Updater(object):
                             aida:sourceDocument "%s" ;
                             aida:confidence [
                                 a aida:Confidence ;
-                                aida:confidenceValue  "1.0"^^xsd:double ;
+                                aida:confidenceValue  "%s"^^xsd:double ;
                                 aida:system <%s> ] ;
                             aida:startOffset  "%s";
                             aida:endOffsetInclusive "%s" ;
                             aida:system <%s> ] .
-                    ''' % (cluster_uri, just_type, just_source, just_doc, self.system, just_so, just_eo, self.system)
+                    ''' % (cluster_uri, just_type, just_source, just_doc, just_cv, self.system, just_so, just_eo, self.system)
                     res.append(inf_just)
-
-            for x in self.select_bindings(query2)[1]:
-                link_target = x['link_target']['value']
-                if link_target not in targets:
-                    targets.append(link_target)
-                    link = '''
-                        <%s> aida:link [
-                            a aida:LinkAssertion ;
-                            aida:linkTarget "%s" ;
+                elif 'kfid' in ij:  # video justification
+                    just_kfid = ij['kfid']['value']
+                    just_ulx = ij['ulx']['value']
+                    just_uly = ij['uly']['value']
+                    just_lrx = ij['lrx']['value']
+                    just_lry = ij['lry']['value']
+                    inf_just = '''
+                        <%s> aida:informativeJustification [
+                            a <%s> ;
+                            aida:source "%s" ;
+                            aida:sourceDocument "%s" ;
                             aida:confidence [
                                 a aida:Confidence ;
-                                aida:confidenceValue  "1.0"^^xsd:double ;
+                                aida:confidenceValue  "%s"^^xsd:double ;
                                 aida:system <%s> ] ;
+                            aida:keyFrame "%s" ;
+                            aida:boundingBox [
+                                aida:boundingBoxUpperLeftX  "%s" ;
+                                aida:boundingBoxUpperLeftY  "%s" ;
+                                aida:boundingBoxLowerRightX "%s" ;
+                                aida:boundingBoxLowerRightY "%s" ;
+                                aida:system <%s> ;
+                            ]
                             aida:system <%s> ] .
-                    ''' % (cluster_uri, link_target, self.system, self.system)
-                    res.append(link)
+                    ''' % (cluster_uri, just_type, just_source, just_doc, just_cv, self.system, just_kfid, just_ulx,
+                           just_uly, just_lrx, just_lry, self.system, self.system)
+                    res.append(inf_just)
+                elif 'sid' in ij:  # short video justification
+                    just_sid = ij['sid']['value']
+                    inf_just = '''
+                        <%s> aida:informativeJustification [
+                            a <%s> ;
+                            aida:source "%s" ;
+                            aida:sourceDocument "%s" ;
+                            aida:confidence [
+                                a aida:Confidence ;
+                                aida:confidenceValue  "%s"^^xsd:double ;
+                                aida:system <%s> ] ;
+                            aida:aida:shot  "%s";
+                            aida:system <%s> ] .
+                    ''' % (cluster_uri, just_type, just_source, just_doc, just_cv, self.system, just_sid, self.system)
+                    res.append(inf_just)
+                elif 'st' in ij:  # audio justification
+                    just_st = ij['st']['value']
+                    just_et = ij['et']['value']
+                    inf_just = '''
+                        <%s> aida:informativeJustification [
+                            a <%s> ;
+                            aida:source "%s" ;
+                            aida:sourceDocument "%s" ;
+                            aida:confidence [
+                                a aida:Confidence ;
+                                aida:confidenceValue  "%s"^^xsd:double ;
+                                aida:system <%s> ] ;
+                            aida:aida:startTimestamp  "%s";
+                            aida:aida:endTimestamp  "%s";
+                            aida:system <%s> ] .
+                    ''' % (cluster_uri, just_type, just_source, just_doc, just_cv, self.system, just_st, just_et, self.system)
+                    res.append(inf_just)
+                else: # image justification
+                    just_ulx = ij['ulx']['value']
+                    just_uly = ij['uly']['value']
+                    just_lrx = ij['lrx']['value']
+                    just_lry = ij['lry']['value']
+                    inf_just = '''
+                        <%s> aida:informativeJustification [
+                            a <%s> ;
+                            aida:source "%s" ;
+                            aida:sourceDocument "%s" ;
+                            aida:confidence [
+                                a aida:Confidence ;
+                                aida:confidenceValue  "%s"^^xsd:double ;
+                                aida:system <%s> ] ;
+                            aida:boundingBox [
+                                aida:boundingBoxUpperLeftX  "%s" ;
+                                aida:boundingBoxUpperLeftY  "%s" ;
+                                aida:boundingBoxLowerRightX "%s" ;
+                                aida:boundingBoxLowerRightY "%s" ;
+                                aida:system <%s> ;
+                            ]
+                            aida:system <%s> ] .
+                    ''' % (cluster_uri, just_type, just_source, just_doc, just_cv, self.system, just_ulx,
+                           just_uly, just_lrx, just_lry, self.system, self.system)
+                    res.append(inf_just)
+
+            targets_cv = {}  # link target and highgest confidence value
+            for x in self.select_bindings(query2)[1]:
+                link_target = x['link_target']['value']
+                cv = x['link_cv']['value']
+                if link_target not in targets_cv:
+                    targets_cv[link_target] = cv
+                elif float(cv) > float(targets_cv[link_target]):
+                    targets_cv[link_target] = cv
+            for link_target, cv in targets_cv.items():
+                link = '''
+                    <%s> aida:link [
+                        a aida:LinkAssertion ;
+                        aida:linkTarget "%s" ;
+                        aida:confidence [
+                            a aida:Confidence ;
+                            aida:confidenceValue  "%s"^^xsd:double ;
+                            aida:system <%s> ] ;
+                        aida:system <%s> ] .
+                ''' % (cluster_uri, link_target, cv, self.system, self.system)
+                res.append(link)
         return res
 
     def generate_relation_jl(self):
