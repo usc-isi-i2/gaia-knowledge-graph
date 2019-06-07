@@ -30,19 +30,30 @@ sys.path.append(".")
 from sparqls import *
 
 
+def divide_list_chunks(l, n):
+    for i in range(0, len(l), n):
+        yield l[i:i + n]
+
 class Updater(object):
-    def __init__(self, endpoint, name, outdir, graph, has_jl=False):
-        if '3030' in endpoint:
-            self.select = SPARQLWrapper(endpoint.rstrip('/') + '/query')
-            self.update = SPARQLWrapper(endpoint.rstrip('/') + '/update')
+    def __init__(self, endpoint_src, endpoint_dst, name, outdir, graph, has_jl=False):
+        if '3030' in endpoint_src:
+            self.select_src = SPARQLWrapper(endpoint_src.rstrip('/') + '/query')
+            self.update_src = SPARQLWrapper(endpoint_src.rstrip('/') + '/update')
+            self.select_dst = SPARQLWrapper(endpoint_dst.rstrip('/') + '/query')
+            self.update_dst = SPARQLWrapper(endpoint_dst.rstrip('/') + '/update')
             self.graphdb = False
         else:
-            self.select = SPARQLWrapper(endpoint)
-            self.update = SPARQLWrapper(endpoint)
+            self.select_src = SPARQLWrapper(endpoint_src)
+            self.update_src = SPARQLWrapper(endpoint_src)
+            self.select_dst = SPARQLWrapper(endpoint_dst)
+            self.update_dst = SPARQLWrapper(endpoint_dst)
             self.graphdb = True
-        self.select.setReturnFormat('json')
-        self.update.setMethod('POST')
-        self.endpoint = endpoint.rstrip('/')
+        self.select_src.setReturnFormat('json')
+        self.update_src.setMethod('POST')
+        self.select_dst.setReturnFormat('json')
+        self.update_dst.setMethod('POST')
+        self.endpoint_src = endpoint_src.rstrip('/')
+        self.endpoint_dst = endpoint_dst.rstrip('/')
 
         self.outdir = outdir
         self.name = name
@@ -66,15 +77,15 @@ class Updater(object):
         self.all_relations = []
 
         query = get_all_entities()
-        for e in self.select_bindings(query)[1]:
+        for e in self.select_bindings(query, 'src')[1]:
             self.all_entities.append(e['e']['value'])
 
         query = get_all_events()
-        for e in self.select_bindings(query)[1]:
+        for e in self.select_bindings(query, 'src')[1]:
             self.all_events.append(e['e']['value'])
 
         query = get_all_relations()
-        for e in self.select_bindings(query)[1]:
+        for e in self.select_bindings(query, 'src')[1]:
             self.all_relations.append(e['e']['value'])
             # print(e['e']['value'])
 
@@ -118,12 +129,20 @@ class Updater(object):
         print("start inserting triples for entity clusters", datetime.now().isoformat())
         entity_nt = self.convert_jl_to_nt(self.entity_jl, 'aida:Entity', 'entities')
         self.upload_data(entity_nt)
+        print("Done. ", datetime.now().isoformat())
+
+    def run_inf_just_nt(self):
         print("start inserting triples for entity clusters informative justification", datetime.now().isoformat())
         inf_just_nt = self.generate_entity_cluster_inf_just(self.entity_jl)
-        # with open('queries.txt', 'w') as f:
-        #     for x in inf_just_nt:
-        #         f.write(x)
-        self.upload_data(inf_just_nt)
+        for chunk in divide_list_chunks(inf_just_nt, 1000):
+            self.upload_data(chunk)
+        print("Done. ", datetime.now().isoformat())
+
+    def run_links_nt(self):
+        print("start inserting triples for entity clusters links", datetime.now().isoformat())
+        links_nt = self.generate_entity_cluster_links(self.entity_jl)
+        for chunk in divide_list_chunks(links_nt, 1000):
+            self.upload_data(chunk)
         print("Done. ", datetime.now().isoformat())
 
     def run_event_nt(self):
@@ -180,7 +199,7 @@ class Updater(object):
 
     def get_json_head_entity(self):
         ent_q = get_entity()
-        for x in self.select_bindings(ent_q)[1]:
+        for x in self.select_bindings(ent_q, 'src')[1]:
             if 'linkTarget' in x:
                 link_target = x['linkTarget']['value']
             else:
@@ -201,7 +220,7 @@ class Updater(object):
 
     def get_json_head_event(self):
         evt_q = get_event()
-        for x in self.select_bindings(evt_q)[1]:
+        for x in self.select_bindings(evt_q, 'src')[1]:
             evt_uri = x['e']['value']
             if evt_uri not in self.event_json:
                 self.event_json[evt_uri] = {'type': x['type']['value'], 'doc': x['doc']['value'], 'text': []}
@@ -250,13 +269,13 @@ class Updater(object):
 
     def generate_entity_cluster_inf_just(self, jl):
         res = []
+        count = 1
         for line in jl:
             ij_by_doc = {}  # ij for each doc with the highest confidence
             members = line
             cluster_uri = '%s-cluster' % members[0]
             query1 = get_cluster_inf_just(cluster_uri)
-            query2 = get_cluster_link(cluster_uri)
-            for x in self.select_bindings(query1)[1]:
+            for x in self.select_bindings(query1, 'dst')[1]:
                 doc_id = x['just_doc']['value']
                 conf = x['just_confidence_value']['value']
                 if doc_id not in ij_by_doc:
@@ -307,8 +326,7 @@ class Updater(object):
                                 aida:boundingBoxUpperLeftY  "%s" ;
                                 aida:boundingBoxLowerRightX "%s" ;
                                 aida:boundingBoxLowerRightY "%s" ;
-                                aida:system <%s> ;
-                            ]
+                                aida:system <%s> ];
                             aida:system <%s> ] .
                     ''' % (cluster_uri, just_type, just_source, just_doc, just_cv, self.system, just_kfid, just_ulx,
                            just_uly, just_lrx, just_lry, self.system, self.system)
@@ -364,15 +382,21 @@ class Updater(object):
                                 aida:boundingBoxUpperLeftY  "%s" ;
                                 aida:boundingBoxLowerRightX "%s" ;
                                 aida:boundingBoxLowerRightY "%s" ;
-                                aida:system <%s> ;
-                            ]
+                                aida:system <%s> ] ;
                             aida:system <%s> ] .
                     ''' % (cluster_uri, just_type, just_source, just_doc, just_cv, self.system, just_ulx,
                            just_uly, just_lrx, just_lry, self.system, self.system)
                     res.append(inf_just)
+        return res
 
+    def generate_entity_cluster_links(self, jl):
+        res = []
+        for line in jl:
+            members = line
+            cluster_uri = '%s-cluster' % members[0]
+            query2 = get_cluster_link(cluster_uri)
             targets_cv = {}  # link target and highgest confidence value
-            for x in self.select_bindings(query2)[1]:
+            for x in self.select_bindings(query2, 'dst')[1]:
                 link_target = x['link_target']['value']
                 cv = x['link_cv']['value']
                 if link_target not in targets_cv:
@@ -397,7 +421,7 @@ class Updater(object):
         groups = {}
         rel_json = {}
         q = get_relation(self.graph)
-        for x in self.select_bindings(q)[1]:
+        for x in self.select_bindings(q, 'dst')[1]:
             rel_uri = x['e']['value']
             if rel_uri not in rel_json:
                 rel_json[rel_uri] = {'links': [], 'type': x['type']['value'].rsplit('#', 1)[-1]}
@@ -418,32 +442,33 @@ class Updater(object):
                 f.write('\n')
         return jl
 
-    def select_bindings(self, q):
+    def select_bindings(self, q, origin):
+        select = self.select_src if origin == 'src' else self.select_dst
         if self.graphdb:
-            self.select.setQuery(self.prefix + q)
+            select.setQuery(self.prefix + q)
         else:
-            self.select.setQuery(self.prefix + q)
-        ans = self.select.query().convert()
+            select.setQuery(self.prefix + q)
+        ans = select.query().convert()
         return ans['head']['vars'], ans['results']['bindings']
 
     def update_sparql(self, q):
         if self.graphdb:
-            req_ = requests.post(self.endpoint + '/statements', params={'update': self.prefix + q})
+            req_ = requests.post(self.endpoint_dst + '/statements', params={'update': self.prefix + q})
             print(req_, req_.content)
         else:
-            self.update.setQuery(self.prefix + q)
-            print('  ', self.update.query().convert())
+            self.update_dst.setQuery(self.prefix + q)
+            print('  ', self.update_dst.query().convert())
 
     def upload_data(self, triple_list):
         data = self.nt_prefix + '\n'.join(triple_list)
         if self.graphdb:
             if self.graph:
                 #     print('!!! not support graph now -- will insert into default graph !!!')
-                ep = self.endpoint + '/rdf-graphs/service?graph=' + self.graph
+                ep = self.endpoint_dst + '/rdf-graphs/service?graph=' + self.graph
             else:
-                ep = self.endpoint + '/statements'
+                ep = self.endpoint_dst + '/statements'
         else:
-            ep = self.endpoint + '/data'
+            ep = self.endpoint_dst + '/data'
             if self.graph:
                 ep += ('?graph=' + self.graph)
         print('  start a post request on %s, with triple list length %d' % (ep, len(triple_list)))

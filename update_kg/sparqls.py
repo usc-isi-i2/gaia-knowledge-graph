@@ -85,7 +85,8 @@ def get_all_relations():
 
 def get_entity():
     return '''
-PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
+#PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
+PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/InterchangeOntology#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
@@ -187,7 +188,8 @@ WHERE {
 
 def get_event():
     return '''
-PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
+#PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
+PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/InterchangeOntology#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
