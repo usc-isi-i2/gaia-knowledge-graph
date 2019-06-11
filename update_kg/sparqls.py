@@ -234,6 +234,7 @@ def get_relation(graph):
         %s
             ?mem aida:cluster ?cluster ;
                 aida:clusterMember ?ent .
+            MINUS {?cluster aida:prototype ?ent}
         %s
     }
     ''' % (open_clause, close_clause)
