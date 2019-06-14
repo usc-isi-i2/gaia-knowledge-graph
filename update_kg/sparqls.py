@@ -390,7 +390,7 @@ def super_edge(graph):
     return '''
 insert { 
     %s
-    [] a rdf:Statement ;
+    ?type_assertion a rdf:Statement ;
        rdf:subject ?evtRelProto ;
        rdf:predicate ?p ;
        rdf:object ?entProto ;
@@ -418,9 +418,9 @@ where {
                  rdf:object ?ent .
       } groupby ?evtRelProto ?p ?entProto orderby desc(?cnt)
   }
-  BIND( URI(CONCAT(STR(?p), "-%s")) AS ?type_assertion )
+  BIND( URI(CONCAT('https://www.isi.edu/gaia/assertions/', STR(RAND()*1000000)))  as ?type_assertion)
 }
-''' % (open_clause, close_clause, open_clause, close_clause, uri_suffix)
+''' % (open_clause, close_clause, open_clause, close_clause)
 
 
 def super_edge_justif(graph):
