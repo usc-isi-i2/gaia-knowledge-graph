@@ -128,7 +128,8 @@ class Updater(object):
     def run_entity_nt(self):
         print("start inserting triples for entity clusters", datetime.now().isoformat())
         entity_nt = self.convert_jl_to_nt(self.entity_jl, 'aida:Entity', 'entities')
-        self.upload_data(entity_nt)
+        for chunk in divide_list_chunks(entity_nt, 1000):
+            self.upload_data(chunk)
         print("Done. ", datetime.now().isoformat())
 
     def run_inf_just_nt(self):
