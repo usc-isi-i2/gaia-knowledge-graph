@@ -28,6 +28,7 @@ sys.path.append(mln_path)
 import baseline2_exe, from_jsonhead2cluster
 sys.path.append(".")
 from sparqls import *
+import pandas as pd
 
 
 def divide_list_chunks(l, n):
@@ -134,14 +135,14 @@ class Updater(object):
 
     def run_inf_just_nt(self):
         print("start inserting triples for entity clusters informative justification", datetime.now().isoformat())
-        inf_just_nt = self.generate_entity_cluster_inf_just(self.entity_jl)
+        inf_just_nt = self.generate_entity_cluster_inf_just_df(self.entity_jl, self.outdir + '/entity_informative_justification.csv')
         for chunk in divide_list_chunks(inf_just_nt, 1000):
             self.upload_data(chunk)
         print("Done. ", datetime.now().isoformat())
 
     def run_links_nt(self):
         print("start inserting triples for entity clusters links", datetime.now().isoformat())
-        links_nt = self.generate_entity_cluster_links(self.entity_jl)
+        links_nt = self.generate_entity_cluster_links_df(self.entity_jl, self.outdir + '/entity_links.csv')
         for chunk in divide_list_chunks(links_nt, 1000):
             self.upload_data(chunk)
         print("Done. ", datetime.now().isoformat())
@@ -270,7 +271,6 @@ class Updater(object):
 
     def generate_entity_cluster_inf_just(self, jl):
         res = []
-        count = 1
         for line in jl:
             ij_by_doc = {}  # ij for each doc with the highest confidence
             members = line
@@ -284,6 +284,7 @@ class Updater(object):
                 else:  # replace existing if higher confidence value
                     if float(conf) > float(ij_by_doc[doc_id]['just_confidence_value']['value']):
                         ij_by_doc[doc_id] = x
+
             for _, ij in ij_by_doc.items():
                 just_type = ij['just_type']['value']
                 just_doc = ij['just_doc']['value']
@@ -390,6 +391,131 @@ class Updater(object):
                     res.append(inf_just)
         return res
 
+    def generate_entity_cluster_inf_just_df(self, jl, dataframe):
+        df_ij = pd.read_csv(dataframe)
+        res = []
+        for line in jl:
+            ij_by_doc = {}  # ij for each doc with the highest confidence
+            members = line
+            cluster_uri = '%s-cluster' % members[0]
+
+            for member in members:  # each entity only has 1 informative justification
+                df_ij_m = df_ij.loc[df_ij['entity'] == member]
+                for index, x in df_ij_m.iterrows():
+                    doc_id = x['just_doc']
+                    conf = x['just_confidence_value']
+                    if doc_id not in ij_by_doc:
+                        ij_by_doc[doc_id] = x
+                    else:  # replace existing if higher confidence value
+                        if float(conf) > float(ij_by_doc[doc_id]['just_confidence_value']):
+                                ij_by_doc[doc_id] = x
+
+            for _, ij in ij_by_doc.items():
+                just_type = ij['just_type']
+                just_doc = ij['just_doc']
+                just_source = ij['just_source']
+                just_cv = ij['just_confidence_value']
+                if just_type == 'aida:TextJustification':  # text justification
+                    just_so = int(ij['so'])
+                    just_eo = int(ij['eo'])
+                    inf_just = '''
+                        <%s> aida:informativeJustification [
+                            a %s ;
+                            aida:source "%s" ;
+                            aida:sourceDocument "%s" ;
+                            aida:confidence [
+                                a aida:Confidence ;
+                                aida:confidenceValue  "%s"^^xsd:double ;
+                                aida:system <%s> ] ;
+                            aida:startOffset  "%s"^^xsd:int;
+                            aida:endOffsetInclusive "%s"^^xsd:int ;
+                            aida:system <%s> ] .
+                    ''' % (cluster_uri, just_type, just_source, just_doc, just_cv, self.system, just_so, just_eo, self.system)
+                    res.append(inf_just)
+                elif just_type == 'aida:KeyFrameVideoJustification':  # video justification
+                    just_kfid = ij['kfid']
+                    just_ulx = int(ij['ulx'])
+                    just_uly = int(ij['uly'])
+                    just_lrx = int(ij['lrx'])
+                    just_lry = int(ij['lry'])
+                    inf_just = '''
+                        <%s> aida:informativeJustification [
+                            a %s ;
+                            aida:source "%s" ;
+                            aida:sourceDocument "%s" ;
+                            aida:confidence [
+                                a aida:Confidence ;
+                                aida:confidenceValue  "%s"^^xsd:double ;
+                                aida:system <%s> ] ;
+                            aida:keyFrame "%s" ;
+                            aida:boundingBox [
+                                aida:boundingBoxUpperLeftX  "%s"^^xsd:int ;
+                                aida:boundingBoxUpperLeftY  "%s"^^xsd:int ;
+                                aida:boundingBoxLowerRightX "%s"^^xsd:int ;
+                                aida:boundingBoxLowerRightY "%s"^^xsd:int ;
+                                aida:system <%s> ];
+                            aida:system <%s> ] .
+                    ''' % (cluster_uri, just_type, just_source, just_doc, just_cv, self.system, just_kfid, just_ulx,
+                           just_uly, just_lrx, just_lry, self.system, self.system)
+                    res.append(inf_just)
+                elif just_type == 'aida:ShotVideoJustification':  # short video justification
+                    just_sid = ij['sid']
+                    inf_just = '''
+                        <%s> aida:informativeJustification [
+                            a %s ;
+                            aida:source "%s" ;
+                            aida:sourceDocument "%s" ;
+                            aida:confidence [
+                                a aida:Confidence ;
+                                aida:confidenceValue  "%s"^^xsd:double ;
+                                aida:system <%s> ] ;
+                            aida:aida:shot  "%s";
+                            aida:system <%s> ] .
+                    ''' % (cluster_uri, just_type, just_source, just_doc, just_cv, self.system, just_sid, self.system)
+                    res.append(inf_just)
+                elif just_type == 'aida:AudioJustification':  # audio justification
+                    just_st = ij['st']
+                    just_et = ij['et']
+                    inf_just = '''
+                        <%s> aida:informativeJustification [
+                            a %s ;
+                            aida:source "%s" ;
+                            aida:sourceDocument "%s" ;
+                            aida:confidence [
+                                a aida:Confidence ;
+                                aida:confidenceValue  "%s"^^xsd:double ;
+                                aida:system <%s> ] ;
+                            aida:aida:startTimestamp  "%s";
+                            aida:aida:endTimestamp  "%s";
+                            aida:system <%s> ] .
+                    ''' % (cluster_uri, just_type, just_source, just_doc, just_cv, self.system, just_st, just_et, self.system)
+                    res.append(inf_just)
+                else: # image justification
+                    just_ulx = int(ij['ulx'])
+                    just_uly = int(ij['uly'])
+                    just_lrx = int(ij['lrx'])
+                    just_lry = int(ij['lry'])
+                    inf_just = '''
+                        <%s> aida:informativeJustification [
+                            a %s ;
+                            aida:source "%s" ;
+                            aida:sourceDocument "%s" ;
+                            aida:confidence [
+                                a aida:Confidence ;
+                                aida:confidenceValue  "%s"^^xsd:double ;
+                                aida:system <%s> ] ;
+                            aida:boundingBox [
+                                aida:boundingBoxUpperLeftX  "%s"^^xsd:int ;
+                                aida:boundingBoxUpperLeftY  "%s"^^xsd:int ;
+                                aida:boundingBoxLowerRightX "%s"^^xsd:int ;
+                                aida:boundingBoxLowerRightY "%s"^^xsd:int ;
+                                aida:system <%s> ] ;
+                            aida:system <%s> ] .
+                    ''' % (cluster_uri, just_type, just_source, just_doc, just_cv, self.system, just_ulx,
+                           just_uly, just_lrx, just_lry, self.system, self.system)
+                    res.append(inf_just)
+        return res
+
     def generate_entity_cluster_links(self, jl):
         res = []
         for line in jl:
@@ -404,6 +530,36 @@ class Updater(object):
                     targets_cv[link_target] = cv
                 elif float(cv) > float(targets_cv[link_target]):
                     targets_cv[link_target] = cv
+            for link_target, cv in targets_cv.items():
+                link = '''
+                    <%s> aida:link [
+                        a aida:LinkAssertion ;
+                        aida:linkTarget "%s" ;
+                        aida:confidence [
+                            a aida:Confidence ;
+                            aida:confidenceValue  "%s"^^xsd:double ;
+                            aida:system <%s> ] ;
+                        aida:system <%s> ] .
+                ''' % (cluster_uri, link_target, cv, self.system, self.system)
+                res.append(link)
+        return res
+
+    def generate_entity_cluster_links_df(self, jl, dataframe):
+        df_links = pd.read_csv(dataframe)
+        res = []
+        for line in jl:
+            members = line
+            cluster_uri = '%s-cluster' % members[0]
+            targets_cv = {}  # link target and highgest confidence value
+            for member in members:
+                df_links_m = df_links.loc[df_links['entity'] == member]
+                for index, x in df_links_m.iterrows():
+                    link_target = x['link_target']
+                    cv = x['link_cv']
+                    if link_target not in targets_cv:
+                        targets_cv[link_target] = cv
+                    elif float(cv) > float(targets_cv[link_target]):
+                        targets_cv[link_target] = cv
             for link_target, cv in targets_cv.items():
                 link = '''
                     <%s> aida:link [
