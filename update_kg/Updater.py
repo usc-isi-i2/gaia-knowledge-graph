@@ -123,7 +123,7 @@ class Updater(object):
     def run_system(self):
         print("start inserting system", datetime.now().isoformat())
         insert_system = system()
-        self.upload_data([insert_system])
+        self.update_sparql(insert_system)
         print("Done. ", datetime.now().isoformat())
 
     def run_entity_nt(self):

@@ -242,7 +242,9 @@ def get_relation(graph):
 
 def system():
     return '''
-    <http://www.isi.edu/TA2> a aida:System .
+    insert data {
+        <http://www.isi.edu/TA2> a aida:System .
+    }
     '''
 
 
