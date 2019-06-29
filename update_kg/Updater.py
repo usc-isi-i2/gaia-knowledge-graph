@@ -135,7 +135,21 @@ class Updater(object):
 
     def run_inf_just_nt(self):
         print("start inserting triples for entity clusters informative justification", datetime.now().isoformat())
-        inf_just_nt = self.generate_entity_cluster_inf_just_df(self.entity_jl, self.outdir + '/entity_informative_justification.csv')
+        inf_just_nt = self.generate_cluster_inf_just_df(self.entity_jl, self.outdir + '/entity_informative_justification.csv')
+        for chunk in divide_list_chunks(inf_just_nt, 1000):
+            self.upload_data(chunk)
+        print("Done. ", datetime.now().isoformat())
+
+        print("start inserting triples for event clusters informative justification", datetime.now().isoformat())
+        inf_just_nt = self.generate_cluster_inf_just_df(self.event_jl,
+                                                        self.outdir + '/event_informative_justification.csv')
+        for chunk in divide_list_chunks(inf_just_nt, 1000):
+            self.upload_data(chunk)
+        print("Done. ", datetime.now().isoformat())
+
+        print("start inserting triples for relation clusters informative justification", datetime.now().isoformat())
+        inf_just_nt = self.generate_cluster_inf_just_df(self.relation_jl,
+                                                        self.outdir + '/relation_informative_justification.csv')
         for chunk in divide_list_chunks(inf_just_nt, 1000):
             self.upload_data(chunk)
         print("Done. ", datetime.now().isoformat())
@@ -391,7 +405,7 @@ class Updater(object):
                     res.append(inf_just)
         return res
 
-    def generate_entity_cluster_inf_just_df(self, jl, dataframe):
+    def generate_cluster_inf_just_df(self, jl, dataframe):
         df_ij = pd.read_csv(dataframe)
         res = []
         for line in jl:
