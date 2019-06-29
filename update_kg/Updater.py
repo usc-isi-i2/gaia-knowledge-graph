@@ -198,6 +198,10 @@ class Updater(object):
         insert_justi = proto_justi(self.graph)
         self.update_sparql(insert_justi)
 
+        print("start inserting prototype informative justification", datetime.now().isoformat())
+        insert_justi = proto_inf_just(self.graph)
+        self.update_sparql(insert_justi)
+
         print("start inserting prototype type-assertion justification", datetime.now().isoformat())
         insert_type_justi = proto_type_assertion_justi(self.graph)
         self.update_sparql(insert_type_justi)

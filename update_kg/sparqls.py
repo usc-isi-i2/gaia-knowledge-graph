@@ -359,6 +359,26 @@ where {
 ''' % (open_clause, close_clause, open_clause, close_clause)
 
 
+def proto_inf_just(graph):
+    open_clause = close_clause = ''
+    if graph:
+        open_clause = 'GRAPH <%s> {' % graph
+        close_clause = '}'
+    return '''
+insert { 
+    %s
+    ?prototype aida:informativeJustification ?informative_justification.
+    %s
+}
+where {
+    %s
+    ?cluster aida:prototype ?prototype .
+    ?cluster aida:informativeJustification ?informative_justification.
+    %s
+} limit 1
+''' % (open_clause, close_clause, open_clause, close_clause)
+
+
 def proto_type_assertion_justi(graph):
     open_clause = close_clause = ''
     if graph:
