@@ -629,7 +629,8 @@ class Updater(object):
             if self.graph:
                 ep += ('?graph=' + self.graph)
         print('  start a post request on %s, with triple list length %d' % (ep, len(triple_list)))
-        r = requests.post(ep, data=data, headers={'Content-Type': 'text/turtle'})
+        # r = requests.post(ep, data=data, headers={'Content-Type': 'text/turtle'})
+        r = requests.post(ep, data=data.encode('utf-8'), headers={'Content-Type': 'text/turtle; charset=utf-8'})
         print('  response ', r.content)
         return r.content
 
