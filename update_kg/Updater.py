@@ -29,6 +29,7 @@ import baseline2_exe, from_jsonhead2cluster
 sys.path.append(".")
 from sparqls import *
 import pandas as pd
+from math import isnan
 
 
 def divide_list_chunks(l, n):
@@ -66,9 +67,9 @@ class Updater(object):
         self.entity_json = {}
         self.event_json = {}
 
-        self.entity_jl = []
-        self.event_jl = []
-        self.relation_jl = []
+        self.entity_jl = {}
+        self.event_jl = {}
+        self.relation_jl = {}
 
         self.graph = graph
         self.has_jl = has_jl
@@ -107,7 +108,7 @@ class Updater(object):
             # create singleton clusters for entities without cluster
             for e in self.all_entities:
                 if not any(e in x for x in self.entity_jl): # entity not in a cluster
-                    self.entity_jl.append([e])
+                    self.entity_jl['%s-cluster' % e] = {'prototype': '%s-prototype' % e, 'members': [e]}
 
             print("start loading event jl", datetime.now().isoformat())
             self.event_jl = self.load_jl(self.outdir + '/' + event_clusters)
@@ -115,7 +116,7 @@ class Updater(object):
             # create singleton clusters for events without cluster
             for e in self.all_events:
                 if not any(e in x for x in self.event_jl):  # event not in a cluster
-                    self.event_jl.append([e])
+                    self.event_jl['%s-cluster' % e] = {'prototype': '%s-prototype' % e, 'members': [e]}
         else:
             self.generate_jl()
         print("Done. ", datetime.now().isoformat())
@@ -176,7 +177,7 @@ class Updater(object):
         # create singleton clusters for relations without clusters
         for e in self.all_relations:
             if not any(e in x for x in self.relation_jl):  # relation not in a cluster
-                self.relation_jl.append([e])
+                self.relation_jl['%s-cluster' % e] = {'prototype': '%s-prototype' % e, 'members': [e]}
 
         print("start inserting triples for relation clusters", datetime.now().isoformat())
         relation_nt = self.convert_jl_to_nt(self.relation_jl, 'aida:Relation', 'relations')
@@ -262,25 +263,24 @@ class Updater(object):
                 ent_type = self.entity_json[ent][1]
                 self.event_json[evt_uri][ent_type].append([ent, ent_name])
 
-    def generate_jl(self):
-        print("start getting json head", datetime.now().isoformat())
-        self.get_json_head_entity()
-        self.get_json_head_event()
-        print(len(self.entity_json), len(self.event_json))
-
-        # run Xin's clustering scripts
-
-        print("start getting entity jl", datetime.now().isoformat())
-        self.entity_jl, entity_edgelist_G = from_jsonhead2cluster.run(self.entity_json, self.name)
-        print("start getting event jl", datetime.now().isoformat())
-        self.entity_jl = baseline2_exe.run(entity_edgelist_G, self.entity_json, self.event_json, self.name)
+    # def generate_jl(self):
+    #     print("start getting json head", datetime.now().isoformat())
+    #     self.get_json_head_entity()
+    #     self.get_json_head_event()
+    #     print(len(self.entity_json), len(self.event_json))
+    #
+    #     # run Xin's clustering scripts
+    #
+    #     print("start getting entity jl", datetime.now().isoformat())
+    #     self.entity_jl, entity_edgelist_G = from_jsonhead2cluster.run(self.entity_json, self.name)
+    #     print("start getting event jl", datetime.now().isoformat())
+    #     self.entity_jl = baseline2_exe.run(entity_edgelist_G, self.entity_json, self.event_json, self.name)
 
     def convert_jl_to_nt(self, jl, aida_type, key_type):
         res = []
-        for line in jl:
-            members = line
-            cluster_uri = '%s-cluster' % members[0]
-            prototype_uri = '%s-prototype' % members[0]
+        for cluster_uri, values in jl.items():
+            prototype_uri = values['prototype']
+            members = values['members']
             res.append(self.wrap_cluster(cluster_uri, prototype_uri, aida_type))
             memberships = '\n'.join([self.wrap_membership(cluster_uri, m) for m in members])
             memberships += '\n' + self.wrap_membership(cluster_uri, prototype_uri)
@@ -411,24 +411,23 @@ class Updater(object):
 
     def generate_cluster_inf_just_df(self, jl, dataframe):
         df_ij = pd.read_csv(dataframe)
+        df_ij.where(pd.notnull(df_ij), None)
         res = []
-        for line in jl:
+        for cluster_uri, value in jl.items():
             ij_by_doc = {}  # ij for each doc with the highest confidence
-            members = line
-            cluster_uri = '%s-cluster' % members[0]
+            members = value['members']
 
             for member in members:  # each entity only has 1 informative justification
                 df_ij_m = df_ij.loc[df_ij['entity'] == member]
                 for index, x in df_ij_m.iterrows():
                     doc_id = x['just_doc']
-                    conf = x['just_confidence_value']
-                    if doc_id not in ij_by_doc:
-                        ij_by_doc[doc_id] = x
-                    else:  # replace existing if higher confidence value
-                        if float(conf) > float(ij_by_doc[doc_id]['just_confidence_value']):
-                                ij_by_doc[doc_id] = x
+                    conf = float(x['just_confidence_value'])
+                    if doc_id not in ij_by_doc or conf > ij_by_doc[doc_id]['cv']:
+                        # ij_by_doc[doc_id] = x
+                        ij_by_doc[doc_id] = {'cv': conf, 'ij': x}
 
-            for _, ij in ij_by_doc.items():
+            for _, x in ij_by_doc.items():
+                ij = x['ij']
                 just_type = ij['just_type']
                 just_doc = ij['just_doc']
                 just_source = ij['just_source']
@@ -508,11 +507,11 @@ class Updater(object):
                             aida:system <%s> ] .
                     ''' % (cluster_uri, just_type, just_source, just_doc, just_cv, self.system, just_st, just_et, self.system)
                     res.append(inf_just)
-                else: # image justification
-                    just_ulx = int(ij['ulx'])
-                    just_uly = int(ij['uly'])
-                    just_lrx = int(ij['lrx'])
-                    just_lry = int(ij['lry'])
+                elif just_type == 'aida:ImageJustification':  # image justification
+                    just_ulx = int(ij['ulx']) if not isnan(ij['ulx']) else 0
+                    just_uly = int(ij['uly']) if not isnan(ij['uly']) else 0
+                    just_lrx = int(ij['lrx']) if not isnan(ij['lrx']) else 0
+                    just_lry = int(ij['lry']) if not isnan(ij['lry']) else 0
                     inf_just = '''
                         <%s> aida:informativeJustification [
                             a %s ;
@@ -565,9 +564,8 @@ class Updater(object):
     def generate_entity_cluster_links_df(self, jl, dataframe):
         df_links = pd.read_csv(dataframe)
         res = []
-        for line in jl:
-            members = line
-            cluster_uri = '%s-cluster' % members[0]
+        for cluster_uri, value in jl.items():
+            members = value['members']
             targets_cv = {}  # link target and highgest confidence value
             for member in members:
                 df_links_m = df_links.loc[df_links['entity'] == member]
@@ -615,6 +613,7 @@ class Updater(object):
             for line in jl:
                 json.dump(line, f)
                 f.write('\n')
+        jl = self.load_jl(self.outdir + '/relation-clusters.jl')
         return jl
 
     def select_bindings(self, q, origin):
@@ -676,10 +675,19 @@ class Updater(object):
 
     @staticmethod
     def load_jl(file_path):
-        jl = []
+        jl = {}
         with open(file_path) as f:
             for line in f.readlines():
-                jl.append(json.loads(line))
+                members = json.loads(line)
+                id = '%s-cluster' % members[0]
+                if id in jl:
+                    random = Updater.random_str(6)
+                    id = '%s-cluster-%s' % (members[0], random)
+                    proto = '%s-prototype-%s' % (members[0], random)
+                else:
+                    id = '%s-cluster' % members[0]
+                    proto = '%s-prototype' % members[0]
+                jl[id] = {'prototype': proto, 'members': members}
         return jl
 
     @staticmethod

@@ -369,13 +369,13 @@ insert {
     %s
     ?prototype aida:informativeJustification ?informative_justification.
     %s
-}
-where {
+} where {
     %s
     ?cluster aida:prototype ?prototype .
-    ?cluster aida:informativeJustification ?informative_justification.
     %s
-} limit 1
+    bind(URI(REPLACE(STR(?prototype), '-prototype.*', '')) as ?e) .
+    ?e aida:informativeJustification ?informative_justification .
+}
 ''' % (open_clause, close_clause, open_clause, close_clause)
 
 
