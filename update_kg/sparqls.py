@@ -146,7 +146,8 @@ def get_cluster_inf_just(cluster_uri):
                    ?bb                aida:boundingBoxUpperLeftX  ?ulx .
                    ?bb                aida:boundingBoxUpperLeftY  ?uly .
                    ?bb                aida:boundingBoxLowerRightX ?lrx .
-                   ?bb                aida:boundingBoxLowerRightY ?lry
+                   ?bb                aida:boundingBoxLowerRightY ?lry .
+                   ?bb                rdf:type ?bb_type
             }
             OPTIONAL {
                    ?informative_justification a                           aida:KeyFrameVideoJustification .
@@ -155,7 +156,8 @@ def get_cluster_inf_just(cluster_uri):
                    ?bb                aida:boundingBoxUpperLeftX  ?ulx .
                    ?bb                aida:boundingBoxUpperLeftY  ?uly .
                    ?bb                aida:boundingBoxLowerRightX ?lrx .
-                   ?bb                aida:boundingBoxLowerRightY ?lry
+                   ?bb                aida:boundingBoxLowerRightY ?lry .
+                   ?bb                rdf:type ?bb_type
             }
             OPTIONAL {
                    ?informative_justification a                           aida:ShotVideoJustification .
@@ -246,6 +248,62 @@ def system():
         <http://www.isi.edu/TA2> a aida:System .
     }
     '''
+
+
+def insert_cluster_inf_just(graph):
+    open_clause = close_clause = ''
+    if graph:
+        open_clause = 'GRAPH <%s> {' % graph
+        close_clause = '}'
+    return '''
+insert {
+    %s
+        ?cluster aida:informativeJustification ?informative_justification .
+    %s
+}
+where {
+    select ?cluster ?informative_justification ?just_doc (max(?just_confidence_value) as ?highest_cv)
+    where { 
+        %s
+            ?membership a aida:ClusterMembership .
+            ?membership aida:cluster ?cluster .
+            ?membership aida:clusterMember ?member .
+        %s
+        ?member aida:informativeJustification ?informative_justification.
+        ?informative_justification aida:sourceDocument ?just_doc .
+        ?informative_justification aida:confidence/aida:confidenceValue ?just_confidence_value .
+    } group by ?cluster ?informative_justification ?just_doc
+}
+''' % (open_clause, close_clause, open_clause, close_clause)
+
+
+def insert_cluster_links(graph):
+    open_clause = close_clause = ''
+    if graph:
+        open_clause = 'GRAPH <%s> {' % graph
+        close_clause = '}'
+    return '''
+insert {
+    %s
+        ?cluster aida:link ?ref_kb_link .
+    %s
+}
+where {
+    SELECT ?cluster ?ref_kb_link (max(?link_cv) as ?higest_cv)
+    WHERE { 
+        %s
+            ?membership aida:cluster ?cluster .
+            ?membership aida:clusterMember ?member .
+        %s
+        ?member a aida:Entity .
+        ?member aida:link ?ref_kb_link .
+        ?ref_kb_link a aida:LinkAssertion .
+        ?ref_kb_link aida:linkTarget ?link_target .
+        ?ref_kb_link aida:confidence ?link_confidence .
+        ?link_confidence aida:confidenceValue ?link_cv .
+    } group by ?cluster ?ref_kb_link
+}
+''' % (open_clause, close_clause, open_clause, close_clause)
 
 
 def proto_name(graph):
