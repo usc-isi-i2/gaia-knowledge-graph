@@ -30,14 +30,31 @@ sys.path.append(".")
 from sparqls import *
 import pandas as pd
 from math import isnan
+import logging
+
+
+def setup_custom_logger(name):
+    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
+                                  datefmt='%Y-%m-%d %H:%M:%S')
+    handler = logging.FileHandler('log.txt', mode='w')
+    handler.setFormatter(formatter)
+    screen_handler = logging.StreamHandler(stream=sys.stdout)
+    screen_handler.setFormatter(formatter)
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+    logger.addHandler(screen_handler)
+    return logger
 
 
 def divide_list_chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i + n]
 
+
 class Updater(object):
     def __init__(self, endpoint_src, endpoint_dst, name, outdir, graph, has_jl=False):
+        self.logger = setup_custom_logger('updater')
         if '3030' in endpoint_src:
             self.select_src = SPARQLWrapper(endpoint_src.rstrip('/') + '/query')
             self.update_src = SPARQLWrapper(endpoint_src.rstrip('/') + '/update')
@@ -93,53 +110,56 @@ class Updater(object):
 
     def run_delete_ori(self):
         delete_ori = delete_ori_cluster()
-        print("start delete original clusters", datetime.now().isoformat())
+        self.logger.info("start delete original clusters")
         self.update_sparql(delete_ori)
         delete_ori_mem = delete_ori_clusterMember()
-        print("start delete original clusters Memberships", datetime.now().isoformat())
+        self.logger.info("start delete original clusters Memberships")
         self.update_sparql(delete_ori_mem)
-        print("Done. ", datetime.now().isoformat())
+        self.logger.info("Done. ")
 
     def run_load_jl(self, entity_clusters='entity-clusters.jl',
                     event_clusters='event-clusters.jl',
                     relation_clusters='relation-clusters.jl'):
         if self.has_jl:
-            print("start loading entity jl", datetime.now().isoformat())
-            self.entity_jl = self.load_jl(self.outdir + '/' + entity_clusters)
+            self.logger.info("start loading entity jl")
+            self.entity_jl, clustered_entities = self.load_jl(self.outdir + '/' + entity_clusters)
 
             # create singleton clusters for entities without cluster
-            print("create entity singletons", datetime.now().isoformat())
+            self.logger.info("create entity singletons")
             count = 1
             for e in self.all_entities:
-                if not any(e in x['members'] for cluster_id, x in self.entity_jl.items()):  # entity not in a cluster
+                # if not any(e in x['members'] for cluster_id, x in self.entity_jl.items()):  # entity not in a cluster
+                if e not in clustered_entities:
                     print('\r', count, end='')
                     count += 1
                     self.entity_jl['%s-cluster' % e] = {'prototype': '%s-prototype' % e, 'members': [e]}
             print('')
 
-            print("start loading event jl", datetime.now().isoformat())
-            self.event_jl = self.load_jl(self.outdir + '/' + event_clusters)
+            self.logger.info("start loading event jl")
+            self.event_jl, clustered_events = self.load_jl(self.outdir + '/' + event_clusters)
             # create singleton clusters for events without cluster
-            print("create event singletons", datetime.now().isoformat())
+            self.logger.info("create event singletons")
             count = 1
             for e in self.all_events:
-                if not any(e in x['members'] for cluster_id, x in self.event_jl.items()):  # event not in a cluster
+                # if not any(e in x['members'] for cluster_id, x in self.event_jl.items()):  # event not in a cluster
+                if e not in clustered_events:
                     print('\r', count, end='')
                     count += 1
                     self.event_jl['%s-cluster' % e] = {'prototype': '%s-prototype' % e, 'members': [e]}
             print('')
 
-            print("start getting relation jl", datetime.now().isoformat())
+            self.logger.info("start getting relation jl")
             if os.path.exists(self.outdir + '/' + relation_clusters):
-                self.relation_jl = self.load_jl(self.outdir + '/' + relation_clusters)
+                self.relation_jl, clustered_relations = self.load_jl(self.outdir + '/' + relation_clusters)
             else:
-                self.relation_jl = self.generate_relation_jl()
+                self.relation_jl, clustered_relations = self.generate_relation_jl()
             # create singleton clusters for relations without clusters
-            print("create relation singletons", datetime.now().isoformat())
+            self.logger.info("create relation singletons")
             count = 1
             for e in self.all_relations:
-                if not any(e in x['members'] for cluster_id, x in
-                           self.relation_jl.items()):  # relation not in a cluster
+                # if not any(e in x['members'] for cluster_id, x in
+                #            self.relation_jl.items()):  # relation not in a cluster
+                if e not in clustered_relations:
                     print('\r', count, end='')
                     count += 1
                     self.relation_jl['%s-cluster' % e] = {'prototype': '%s-prototype' % e, 'members': [e]}
@@ -147,20 +167,20 @@ class Updater(object):
 
         else:
             self.generate_jl()
-        print("Done. ", datetime.now().isoformat())
+        self.logger.info("Done. ")
 
     def run_system(self):
-        print("start inserting system", datetime.now().isoformat())
+        self.logger.info("start inserting system")
         insert_system = system()
         self.update_sparql(insert_system)
-        print("Done. ", datetime.now().isoformat())
+        self.logger.info("Done. ")
 
     def run_entity_nt(self):
-        print("start inserting triples for entity clusters", datetime.now().isoformat())
+        self.logger.info("start inserting triples for entity clusters")
         entity_nt = self.convert_jl_to_nt(self.entity_jl, 'aida:Entity', 'entities')
         for chunk in divide_list_chunks(entity_nt, 1000):
             self.upload_data(chunk)
-        print("Done. ", datetime.now().isoformat())
+        self.logger.info("Done. ")
 
     def run_inf_just_nt(self):
         # print("start inserting triples for entity clusters informative justification", datetime.now().isoformat())
@@ -183,10 +203,10 @@ class Updater(object):
         #     self.upload_data(chunk)
         # print("Done. ", datetime.now().isoformat())
 
-        print("start inserting clusters informative justification", datetime.now().isoformat())
+        self.logger.info("start inserting clusters informative justification")
         insert_ij = insert_cluster_inf_just(self.graph)
         self.update_sparql(insert_ij)
-        print("Done. ", datetime.now().isoformat())
+        self.logger.info("Done. ")
 
     def run_links_nt(self):
         # print("start inserting triples for entity clusters links", datetime.now().isoformat())
@@ -194,58 +214,58 @@ class Updater(object):
         # for chunk in divide_list_chunks(links_nt, 1000):
         #     self.upload_data(chunk)
         # print("Done. ", datetime.now().isoformat())
-        print("start inserting entity cluster links", datetime.now().isoformat())
+        self.logger.info("start inserting entity cluster links")
         insert_ij = insert_cluster_links(self.graph)
         self.update_sparql(insert_ij)
-        print("Done. ", datetime.now().isoformat())
+        self.logger.info("Done. ")
 
     def run_event_nt(self):
-        print("start inserting triples for event clusters", datetime.now().isoformat())
+        self.logger.info("start inserting triples for event clusters")
         event_nt = self.convert_jl_to_nt(self.event_jl, 'aida:Event', 'events')
         self.upload_data(event_nt)
         # if self.graphdb:
         #     input('upload nt and continue')
-        print("Done. ", datetime.now().isoformat())
+        self.logger.info("Done. ")
 
     def run_relation_nt(self):
-        print("start inserting triples for relation clusters", datetime.now().isoformat())
+        self.logger.info("start inserting triples for relation clusters")
         relation_nt = self.convert_jl_to_nt(self.relation_jl, 'aida:Relation', 'relations')
         self.upload_data(relation_nt)
         # if self.graphdb:
         #     input('upload nt and continue')
-        print("Done. ", datetime.now().isoformat())
+        self.logger.info("Done. ")
 
     def run_insert_proto(self):
-        print("start inserting prototype name", datetime.now().isoformat())
+        self.logger.info("start inserting prototype name")
         insert_name = proto_name(self.graph)
         self.update_sparql(insert_name)
 
-        print("start inserting prototype type(category)", datetime.now().isoformat())
+        self.logger.info("start inserting prototype type(category)")
         insert_type = proto_type(self.graph)
         self.update_sparql(insert_type)
 
-        print("start inserting prototype justification", datetime.now().isoformat())
+        self.logger.info("start inserting prototype justification")
         insert_justi = proto_justi(self.graph)
         self.update_sparql(insert_justi)
 
-        print("start inserting prototype informative justification", datetime.now().isoformat())
+        self.logger.info("start inserting prototype informative justification")
         insert_justi = proto_inf_just(self.graph)
         self.update_sparql(insert_justi)
 
-        print("start inserting prototype type-assertion justification", datetime.now().isoformat())
+        self.logger.info("start inserting prototype type-assertion justification")
         insert_type_justi = proto_type_assertion_justi(self.graph)
         self.update_sparql(insert_type_justi)
-        print("Done. ", datetime.now().isoformat())
+        self.logger.info("Done. ")
 
     def run_super_edge(self):
-        print("start inserting superEdge", datetime.now().isoformat())
+        self.logger.info("start inserting superEdge")
         insert_se = super_edge(self.graph)
         self.update_sparql(insert_se)
 
-        print("start inserting superEdge justifications", datetime.now().isoformat())
+        self.logger.info("start inserting superEdge justifications")
         insert_se_justi = super_edge_justif(self.graph)
         self.update_sparql(insert_se_justi)
-        print("Done. ", datetime.now().isoformat())
+        self.logger.info("Done. ")
 
     def get_json_head_entity(self):
         ent_q = get_entity()
@@ -310,6 +330,7 @@ class Updater(object):
         for cluster_uri, values in jl.items():
             prototype_uri = values['prototype']
             members = values['members']
+            self.logger.info("Create cluster triples of size: " + str(len(members)))
             res.append(self.wrap_cluster(cluster_uri, prototype_uri, aida_type))
             memberships = '\n'.join([self.wrap_membership(cluster_uri, m) for m in members])
             memberships += '\n' + self.wrap_membership(cluster_uri, prototype_uri)
@@ -502,7 +523,7 @@ class Updater(object):
             for line in jl:
                 json.dump(line, f)
                 f.write('\n')
-        jl = self.load_jl(self.outdir + '/relation-clusters.jl')
+        jl, clustered_relations = self.load_jl(self.outdir + '/relation-clusters.jl')
         return jl
 
     def select_bindings(self, q, origin):
@@ -517,10 +538,10 @@ class Updater(object):
     def update_sparql(self, q):
         if self.graphdb:
             req_ = requests.post(self.endpoint_dst + '/statements', params={'update': self.prefix + q})
-            print(req_, req_.content)
+            self.logger.info(str(req_) + ' ' + str(req_.content))
         else:
             self.update_dst.setQuery(self.prefix + q)
-            print('  ', self.update_dst.query().convert())
+            self.logger.info('  ', self.update_dst.query().convert())
 
     def upload_data(self, triple_list):
         data = self.nt_prefix + '\n'.join(triple_list)
@@ -534,10 +555,10 @@ class Updater(object):
             ep = self.endpoint_dst + '/data'
             if self.graph:
                 ep += ('?graph=' + self.graph)
-        print('  start a post request on %s, with triple list length %d' % (ep, len(triple_list)))
+        self.logger.info('  start a post request on ' + ep + ', with triple list length ' + str(len(triple_list)))
         # r = requests.post(ep, data=data, headers={'Content-Type': 'text/turtle'})
         r = requests.post(ep, data=data.encode('utf-8'), headers={'Content-Type': 'text/turtle; charset=utf-8'})
-        print('  response ', r.content)
+        self.logger.info('  response ' + str(r.content))
         return r.content
 
     def wrap_membership(self, cluster, member):
@@ -565,12 +586,14 @@ class Updater(object):
     @staticmethod
     def load_jl(file_path):
         jl = {}
+        entities = set()
         count = 1
         with open(file_path) as f:
             for line in f.readlines():
                 print('\r', count, end='')
                 count += 1
                 members = json.loads(line)
+                entities = entities.union(set(members))
                 id = '%s-cluster' % members[0]
                 if id in jl:
                     random = Updater.random_str(6)
@@ -581,7 +604,7 @@ class Updater(object):
                     proto = '%s-prototype' % members[0]
                 jl[id] = {'prototype': proto, 'members': members}
             print('')
-        return jl
+        return jl, entities
 
     @staticmethod
     def random_str(length=32):
