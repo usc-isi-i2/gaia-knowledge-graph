@@ -524,7 +524,7 @@ class Updater(object):
                 json.dump(line, f)
                 f.write('\n')
         jl, clustered_relations = self.load_jl(self.outdir + '/relation-clusters.jl')
-        return jl
+        return jl, clustered_relations
 
     def select_bindings(self, q, origin):
         select = self.select_src if origin == 'src' else self.select_dst
