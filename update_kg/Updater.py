@@ -33,10 +33,10 @@ from math import isnan
 import logging
 
 
-def setup_custom_logger(name):
+def setup_custom_logger(name, filename):
     formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
                                   datefmt='%Y-%m-%d %H:%M:%S')
-    handler = logging.FileHandler('log.txt', mode='w')
+    handler = logging.FileHandler(filename, mode='w')
     handler.setFormatter(formatter)
     screen_handler = logging.StreamHandler(stream=sys.stdout)
     screen_handler.setFormatter(formatter)
@@ -54,7 +54,7 @@ def divide_list_chunks(l, n):
 
 class Updater(object):
     def __init__(self, endpoint_src, endpoint_dst, name, outdir, graph, has_jl=False):
-        self.logger = setup_custom_logger('updater')
+        self.logger = setup_custom_logger('updater', name + '-log.txt')
         if '3030' in endpoint_src:
             self.select_src = SPARQLWrapper(endpoint_src.rstrip('/') + '/query')
             self.update_src = SPARQLWrapper(endpoint_src.rstrip('/') + '/update')
@@ -106,7 +106,6 @@ class Updater(object):
         query = get_all_relations()
         for e in self.select_bindings(query, 'src')[1]:
             self.all_relations.append(e['e']['value'])
-            # print(e['e']['value'])
 
     def run_delete_ori(self):
         delete_ori = delete_ori_cluster()
@@ -117,103 +116,140 @@ class Updater(object):
         self.update_sparql(delete_ori_mem)
         self.logger.info("Done. ")
 
-    def run_load_jl(self, entity_clusters='entity-clusters.jl',
-                    event_clusters='event-clusters.jl',
-                    relation_clusters='relation-clusters.jl'):
-        if self.has_jl:
-            self.logger.info("start loading entity jl")
-            self.entity_jl, clustered_entities = self.load_jl(self.outdir + '/' + entity_clusters)
-
-            # create singleton clusters for entities without cluster
-            self.logger.info("create entity singletons")
-            count = 1
-            for e in self.all_entities:
-                # if not any(e in x['members'] for cluster_id, x in self.entity_jl.items()):  # entity not in a cluster
-                if e not in clustered_entities:
-                    print('\r', count, end='')
-                    count += 1
-                    self.entity_jl['%s-cluster' % e] = {'prototype': '%s-prototype' % e, 'members': [e]}
-            print('')
-
-            self.logger.info("start loading event jl")
-            self.event_jl, clustered_events = self.load_jl(self.outdir + '/' + event_clusters)
-            # create singleton clusters for events without cluster
-            self.logger.info("create event singletons")
-            count = 1
-            for e in self.all_events:
-                # if not any(e in x['members'] for cluster_id, x in self.event_jl.items()):  # event not in a cluster
-                if e not in clustered_events:
-                    print('\r', count, end='')
-                    count += 1
-                    self.event_jl['%s-cluster' % e] = {'prototype': '%s-prototype' % e, 'members': [e]}
-            print('')
-
-            self.logger.info("start getting relation jl")
-            if os.path.exists(self.outdir + '/' + relation_clusters):
-                self.relation_jl, clustered_relations = self.load_jl(self.outdir + '/' + relation_clusters)
-            else:
-                self.relation_jl, clustered_relations = self.generate_relation_jl()
-            # create singleton clusters for relations without clusters
-            self.logger.info("create relation singletons")
-            count = 1
-            for e in self.all_relations:
-                # if not any(e in x['members'] for cluster_id, x in
-                #            self.relation_jl.items()):  # relation not in a cluster
-                if e not in clustered_relations:
-                    print('\r', count, end='')
-                    count += 1
-                    self.relation_jl['%s-cluster' % e] = {'prototype': '%s-prototype' % e, 'members': [e]}
-            print('')
-
-        else:
-            self.generate_jl()
-        self.logger.info("Done. ")
-
     def run_system(self):
         self.logger.info("start inserting system")
         insert_system = system()
         self.update_sparql(insert_system)
         self.logger.info("Done. ")
 
-    def run_entity_nt(self):
-        self.logger.info("start inserting triples for entity clusters")
-        entity_nt = self.convert_jl_to_nt(self.entity_jl, 'aida:Entity', 'entities')
+    def run_clusters(self, entity_clusters='entity-clusters.jl',
+                     event_clusters='event-clusters.jl',
+                     relation_clusters='relation-clusters.jl'):
+
+        self.logger.info("start entity clusters")
+        self._run_cluster_nt(self.outdir + '/' + entity_clusters, 'aida:Entity')
+
+        self.logger.info("start event clusters")
+        self._run_cluster_nt(self.outdir + '/' + event_clusters, 'aida:Event')
+
+        self.logger.info("start getting relation jl")
+        if not os.path.exists(self.outdir + '/' + relation_clusters):
+            self._generate_relation_jl()
+        self._run_cluster_nt(self.outdir + '/' + relation_clusters, 'aida:Relation')
+
+    def _run_cluster_nt(self, file_path, aida_type):
+        self.logger.info('Run cluster nt for ' + aida_type)
+        jl = {}
+        clustered_entities = set()
+        total_count = 1
+        # process 100 clusters at a time
+        set_count = 0
+
+        self.logger.info('Run cluster nt from cluster file for ' + aida_type)
+        with open(file_path) as f:
+            for line in f.readlines():
+                set_count += 1
+                print('\r', total_count, end='')
+                total_count += 1
+                members = json.loads(line)
+                clustered_entities = clustered_entities.union(set(members))
+                random = Updater.random_str(10)
+                id = '%s-cluster-%s' % (members[0], random)
+                proto = '%s-prototype-%s' % (members[0], random)
+                jl[id] = {'prototype': proto, 'members': members}
+
+                # reach 1000 clusters, insert and reset
+                if set_count == 1000:
+                    print('')
+                    self._insert_clusters(jl, aida_type)
+                    set_count = 0
+                    jl = {}
+
+            # insert remaining clusters
+            print('')
+            self._insert_clusters(jl, aida_type)
+
+        # create singletons
+        self.logger.info('Run single cluster nt for ' + aida_type)
+        set_count = 0
+        jl = {}
+        count = 1
+
+        if aida_type == 'aida:Entity':
+            all_entities = self.all_entities
+        elif aida_type == 'aida:Event':
+            all_entities = self.all_events
+        else:
+            all_entities = self.all_relations
+
+        for e in all_entities:
+            if e not in clustered_entities:
+                set_count += 1
+                print('\r', count, end='')
+                count += 1
+                jl['%s-cluster' % e] = {'prototype': '%s-prototype' % e, 'members': [e]}
+
+                # reach 1000 cluster, insert and reset
+                if set_count == 1000:
+                    print('')
+                    self._insert_clusters(jl, aida_type)
+                    set_count = 0
+                    jl = {}
+
+        # insert remaining clusters
+        print('')
+        self._insert_clusters(jl, aida_type)
+
+    def _insert_clusters(self, jl, aida_type):
+        self.logger.info("start inserting triples for " + aida_type + " clusters")
+        entity_nt = self._convert_jl_to_nt(jl, aida_type)
         for chunk in divide_list_chunks(entity_nt, 1000):
             self.upload_data(chunk)
         self.logger.info("Done. ")
 
-    def run_inf_just_nt(self):
-        # print("start inserting triples for entity clusters informative justification", datetime.now().isoformat())
-        # inf_just_nt = self.generate_cluster_inf_just_df(self.entity_jl, self.outdir + '/entity_informative_justification.csv')
-        # for chunk in divide_list_chunks(inf_just_nt, 1000):
-        #     self.upload_data(chunk)
-        # print("Done. ", datetime.now().isoformat())
-        #
-        # print("start inserting triples for event clusters informative justification", datetime.now().isoformat())
-        # inf_just_nt = self.generate_cluster_inf_just_df(self.event_jl,
-        #                                                 self.outdir + '/event_informative_justification.csv')
-        # for chunk in divide_list_chunks(inf_just_nt, 1000):
-        #     self.upload_data(chunk)
-        # print("Done. ", datetime.now().isoformat())
-        #
-        # print("start inserting triples for relation clusters informative justification", datetime.now().isoformat())
-        # inf_just_nt = self.generate_cluster_inf_just_df(self.relation_jl,
-        #                                                 self.outdir + '/relation_informative_justification.csv')
-        # for chunk in divide_list_chunks(inf_just_nt, 1000):
-        #     self.upload_data(chunk)
-        # print("Done. ", datetime.now().isoformat())
+    def _convert_jl_to_nt(self, jl, aida_type):
+        res = []
+        for cluster_uri, values in jl.items():
+            prototype_uri = values['prototype']
+            members = values['members']
+            self.logger.info("Create cluster triples of size: " + str(len(members)))
+            res.append(self.wrap_cluster(cluster_uri, prototype_uri, aida_type))
+            memberships = '\n'.join([self.wrap_membership(cluster_uri, m) for m in members])
+            memberships += '\n' + self.wrap_membership(cluster_uri, prototype_uri)
+            res.append(memberships)
+        return res
 
+    def _generate_relation_jl(self):
+        groups = {}
+        rel_json = {}
+        q = get_relation(self.graph)
+        for x in self.select_bindings(q, 'dst')[1]:
+            rel_uri = x['e']['value']
+            if rel_uri not in rel_json:
+                rel_json[rel_uri] = {'links': [], 'type': x['type']['value'].rsplit('#', 1)[-1]}
+
+                pred = x['p']['value']
+                cluster = x['cluster']['value']
+                rel_json[rel_uri]['links'].append((pred.rsplit('#', 1)[-1], cluster.rsplit('#', 1)[-1]))
+        for rel, attrs in rel_json.items():
+            attr = attrs['type'] + str(sorted(attrs['links']))
+            if attr not in groups:
+                groups[attr] = []
+            groups[attr].append(rel)
+
+        jl = [v for v in groups.values()]
+        with open(self.outdir + '/relation-clusters.jl', 'w') as f:
+            for line in jl:
+                json.dump(line, f)
+                f.write('\n')
+
+    def run_inf_just_nt(self):
         self.logger.info("start inserting clusters informative justification")
         insert_ij = insert_cluster_inf_just(self.graph)
         self.update_sparql(insert_ij)
         self.logger.info("Done. ")
 
     def run_links_nt(self):
-        # print("start inserting triples for entity clusters links", datetime.now().isoformat())
-        # links_nt = self.generate_entity_cluster_links_df(self.entity_jl, self.outdir + '/entity_links.csv')
-        # for chunk in divide_list_chunks(links_nt, 1000):
-        #     self.upload_data(chunk)
-        # print("Done. ", datetime.now().isoformat())
         self.logger.info("start inserting entity cluster links")
         insert_ij = insert_cluster_links(self.graph)
         self.update_sparql(insert_ij)
@@ -221,18 +257,14 @@ class Updater(object):
 
     def run_event_nt(self):
         self.logger.info("start inserting triples for event clusters")
-        event_nt = self.convert_jl_to_nt(self.event_jl, 'aida:Event', 'events')
+        event_nt = self.convert_jl_to_nt(self.event_jl, 'aida:Event')
         self.upload_data(event_nt)
-        # if self.graphdb:
-        #     input('upload nt and continue')
         self.logger.info("Done. ")
 
     def run_relation_nt(self):
         self.logger.info("start inserting triples for relation clusters")
-        relation_nt = self.convert_jl_to_nt(self.relation_jl, 'aida:Relation', 'relations')
+        relation_nt = self.convert_jl_to_nt(self.relation_jl, 'aida:Relation')
         self.upload_data(relation_nt)
-        # if self.graphdb:
-        #     input('upload nt and continue')
         self.logger.info("Done. ")
 
     def run_insert_proto(self):
@@ -324,18 +356,6 @@ class Updater(object):
     #     self.entity_jl, entity_edgelist_G = from_jsonhead2cluster.run(self.entity_json, self.name)
     #     print("start getting event jl", datetime.now().isoformat())
     #     self.entity_jl = baseline2_exe.run(entity_edgelist_G, self.entity_json, self.event_json, self.name)
-
-    def convert_jl_to_nt(self, jl, aida_type, key_type):
-        res = []
-        for cluster_uri, values in jl.items():
-            prototype_uri = values['prototype']
-            members = values['members']
-            self.logger.info("Create cluster triples of size: " + str(len(members)))
-            res.append(self.wrap_cluster(cluster_uri, prototype_uri, aida_type))
-            memberships = '\n'.join([self.wrap_membership(cluster_uri, m) for m in members])
-            memberships += '\n' + self.wrap_membership(cluster_uri, prototype_uri)
-            res.append(memberships)
-        return res
 
     def generate_cluster_inf_just_df(self, jl, dataframe):
         df_ij = pd.read_csv(dataframe)
@@ -500,32 +520,6 @@ class Updater(object):
         print('')
         return res
 
-    def generate_relation_jl(self):
-        groups = {}
-        rel_json = {}
-        q = get_relation(self.graph)
-        for x in self.select_bindings(q, 'dst')[1]:
-            rel_uri = x['e']['value']
-            if rel_uri not in rel_json:
-                rel_json[rel_uri] = {'links': [], 'type': x['type']['value'].rsplit('#', 1)[-1]}
-
-                pred = x['p']['value']
-                cluster = x['cluster']['value']
-                rel_json[rel_uri]['links'].append((pred.rsplit('#', 1)[-1], cluster.rsplit('#', 1)[-1]))
-        for rel, attrs in rel_json.items():
-            attr = attrs['type'] + str(sorted(attrs['links']))
-            if attr not in groups:
-                groups[attr] = []
-            groups[attr].append(rel)
-
-        jl = [v for v in groups.values()]
-        with open(self.outdir + '/relation-clusters.jl', 'w') as f:
-            for line in jl:
-                json.dump(line, f)
-                f.write('\n')
-        jl, clustered_relations = self.load_jl(self.outdir + '/relation-clusters.jl')
-        return jl, clustered_relations
-
     def select_bindings(self, q, origin):
         select = self.select_src if origin == 'src' else self.select_dst
         if self.graphdb:
@@ -582,24 +576,6 @@ class Updater(object):
         <%s> a %s .
         ''' % (cluster, prototype, self.system, prototype, prototype_type)
         return cluster.strip('\n')
-
-    @staticmethod
-    def load_jl(file_path):
-        jl = {}
-        entities = set()
-        count = 1
-        with open(file_path) as f:
-            for line in f.readlines():
-                print('\r', count, end='')
-                count += 1
-                members = json.loads(line)
-                entities = entities.union(set(members))
-                random = Updater.random_str(10)
-                id = '%s-cluster-%s' % (members[0], random)
-                proto = '%s-prototype-%s' % (members[0], random)
-                jl[id] = {'prototype': proto, 'members': members}
-            print('')
-        return jl, entities
 
     @staticmethod
     def random_str(length=32):
