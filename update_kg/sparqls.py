@@ -250,6 +250,8 @@ def system():
     '''
 
 
+# We should use highest confidence of each cluster, just_doc, but can't find the corresponding ij that way
+# select ?cluster ?informative_justification ?just_doc (max(?just_confidence_value) as ?highest_cv)
 def insert_cluster_inf_just(graph):
     open_clause = close_clause = ''
     if graph:
@@ -258,11 +260,11 @@ def insert_cluster_inf_just(graph):
     return '''
 insert {
     %s
-        ?cluster aida:informativeJustification ?informative_justification .
+        ?cluster aida:informativeJustification ?highest_ij .
     %s
 }
 where {
-    select ?cluster ?informative_justification ?just_doc (max(?just_confidence_value) as ?highest_cv)
+    select ?cluster ?just_doc (max(?informative_justification) as ?highest_ij)
     where { 
         %s
             ?membership a aida:ClusterMembership .
@@ -271,8 +273,8 @@ where {
         %s
         ?member aida:informativeJustification ?informative_justification.
         ?informative_justification aida:sourceDocument ?just_doc .
-        ?informative_justification aida:confidence/aida:confidenceValue ?just_confidence_value .
-    } group by ?cluster ?informative_justification ?just_doc
+        #?informative_justification aida:confidence/aida:confidenceValue ?just_confidence_value .
+    } group by ?cluster ?just_doc
 }
 ''' % (open_clause, close_clause, open_clause, close_clause)
 

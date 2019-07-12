@@ -594,14 +594,9 @@ class Updater(object):
                 count += 1
                 members = json.loads(line)
                 entities = entities.union(set(members))
-                id = '%s-cluster' % members[0]
-                if id in jl:
-                    random = Updater.random_str(6)
-                    id = '%s-cluster-%s' % (members[0], random)
-                    proto = '%s-prototype-%s' % (members[0], random)
-                else:
-                    id = '%s-cluster' % members[0]
-                    proto = '%s-prototype' % members[0]
+                random = Updater.random_str(10)
+                id = '%s-cluster-%s' % (members[0], random)
+                proto = '%s-prototype-%s' % (members[0], random)
                 jl[id] = {'prototype': proto, 'members': members}
             print('')
         return jl, entities
