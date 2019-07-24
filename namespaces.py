@@ -2,8 +2,11 @@ from rdflib.namespace import RDF, Namespace, XSD
 from aif import aida_rdf_ontologies
 
 AidaDomainOntologiesCommon = Namespace('https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/AidaDomainOntologiesCommon#')
-AidaSeedling = Namespace('https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/SeedlingOntology#')
-AidaInterchange = Namespace('https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#')
+# AidaSeedling = Namespace('https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/SeedlingOntology#')
+# AidaInterchange = Namespace('https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#')
+AidaSeedling = Namespace('https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/SeedlingOntology#')
+AidaInterchange = Namespace('https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/InterchangeOntology#')
+
 
 namespaces = {
     'aida': aida_rdf_ontologies.AIDA_ANNOTATION,

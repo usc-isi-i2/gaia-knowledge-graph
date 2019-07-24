@@ -10,9 +10,9 @@ WHERE {?s ?p ?o}
 
 def delete_ori_cluster():
     return '''
-PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
-PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+# PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
+# PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+# PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 DELETE {
     ?cluster a aida:SameAsCluster ;
@@ -29,9 +29,9 @@ WHERE {
 
 def delete_ori_clusterMember():
     return '''
-PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
-PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+# PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
+# PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+# PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
 DELETE {
     ?clusterMembership a aida:ClusterMembership ;
@@ -56,9 +56,37 @@ WHERE {
     '''
 
 
+def get_all_entities():
+    return '''
+    SELECT ?e
+    WHERE {
+        ?e a aida:Entity .
+    }
+    '''
+
+
+def get_all_events():
+    return '''
+    SELECT ?e
+    WHERE {
+        ?e a aida:Event .
+    }
+    '''
+
+
+def get_all_relations():
+    return '''
+    SELECT ?e
+    WHERE {
+        ?e a aida:Relation .
+    }
+    '''
+
+
 def get_entity():
     return '''
-PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
+#PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
+PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/InterchangeOntology#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
@@ -92,9 +120,78 @@ WHERE {
 '''
 
 
+def get_cluster_inf_just(cluster_uri):
+    return '''
+        select *
+        where { 
+            ?membership a aida:ClusterMembership .
+            ?membership aida:cluster <%s> .
+            ?membership aida:clusterMember ?member .
+            ?membership aida:confidence ?member_confidence .
+            ?member_confidence aida:confidenceValue ?member_confidence_value .
+            ?member aida:informativeJustification ?informative_justification.
+            ?informative_justification a ?just_type .
+            ?informative_justification aida:source ?just_source .
+            ?informative_justification aida:sourceDocument ?just_doc .
+            ?informative_justification aida:confidence ?just_confidence .
+            ?just_confidence aida:confidenceValue ?just_confidence_value .
+            OPTIONAL {
+                   ?informative_justification a                           aida:TextJustification .
+                   ?informative_justification aida:startOffset            ?so .
+                   ?informative_justification aida:endOffsetInclusive     ?eo
+            }
+            OPTIONAL {
+                   ?informative_justification a                           aida:ImageJustification .
+                   ?informative_justification aida:boundingBox            ?bb  .
+                   ?bb                aida:boundingBoxUpperLeftX  ?ulx .
+                   ?bb                aida:boundingBoxUpperLeftY  ?uly .
+                   ?bb                aida:boundingBoxLowerRightX ?lrx .
+                   ?bb                aida:boundingBoxLowerRightY ?lry .
+                   ?bb                rdf:type ?bb_type
+            }
+            OPTIONAL {
+                   ?informative_justification a                           aida:KeyFrameVideoJustification .
+                   ?informative_justification aida:keyFrame               ?kfid .
+                   ?informative_justification aida:boundingBox            ?bb  .
+                   ?bb                aida:boundingBoxUpperLeftX  ?ulx .
+                   ?bb                aida:boundingBoxUpperLeftY  ?uly .
+                   ?bb                aida:boundingBoxLowerRightX ?lrx .
+                   ?bb                aida:boundingBoxLowerRightY ?lry .
+                   ?bb                rdf:type ?bb_type
+            }
+            OPTIONAL {
+                   ?informative_justification a                           aida:ShotVideoJustification .
+                   ?informative_justification aida:shot                   ?sid
+            }
+            OPTIONAL {
+                   ?informative_justification a                           aida:AudioJustification .
+                   ?informative_justification aida:startTimestamp         ?st .
+                   ?informative_justification aida:endTimestamp           ?et
+            }
+        } 
+    ''' % cluster_uri
+
+
+def get_cluster_link(cluster_uri):
+    return '''
+SELECT *
+WHERE { 
+    ?membership aida:cluster <%s> .
+    ?membership aida:clusterMember ?member .
+    ?member a aida:Entity .
+    ?member aida:link ?ref_kb_link .
+    ?ref_kb_link a aida:LinkAssertion .
+    ?ref_kb_link aida:linkTarget ?link_target .
+    ?ref_kb_link aida:confidence ?link_confidence .
+    ?link_confidence aida:confidenceValue ?link_cv .
+} 
+    ''' % cluster_uri
+
+
 def get_event():
     return '''
-PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
+#PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2018/ontologies/InterchangeOntology#>
+PREFIX aida: <https://tac.nist.gov/tracks/SM-KBP/2019/ontologies/InterchangeOntology#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
@@ -139,9 +236,76 @@ def get_relation(graph):
         %s
             ?mem aida:cluster ?cluster ;
                 aida:clusterMember ?ent .
+            MINUS {?cluster aida:prototype ?ent}
         %s
     }
     ''' % (open_clause, close_clause)
+
+
+def system():
+    return '''
+    insert data {
+        <http://www.isi.edu/TA2> a aida:System .
+    }
+    '''
+
+
+# We should use highest confidence of each cluster, just_doc, but can't find the corresponding ij that way
+# select ?cluster ?informative_justification ?just_doc (max(?just_confidence_value) as ?highest_cv)
+def insert_cluster_inf_just(graph):
+    open_clause = close_clause = ''
+    if graph:
+        open_clause = 'GRAPH <%s> {' % graph
+        close_clause = '}'
+    return '''
+insert {
+    %s
+        ?cluster aida:informativeJustification ?highest_ij .
+    %s
+}
+where {
+    select ?cluster ?just_doc (max(?informative_justification) as ?highest_ij)
+    where { 
+        %s
+            ?membership a aida:ClusterMembership .
+            ?membership aida:cluster ?cluster .
+            ?membership aida:clusterMember ?member .
+        %s
+        ?member aida:informativeJustification ?informative_justification.
+        ?informative_justification aida:sourceDocument ?just_doc .
+        #?informative_justification aida:confidence/aida:confidenceValue ?just_confidence_value .
+    } group by ?cluster ?just_doc
+}
+''' % (open_clause, close_clause, open_clause, close_clause)
+
+
+def insert_cluster_links(graph):
+    open_clause = close_clause = ''
+    if graph:
+        open_clause = 'GRAPH <%s> {' % graph
+        close_clause = '}'
+    return '''
+insert {
+    %s
+        ?cluster aida:link ?ref_kb_link .
+    %s
+}
+where {
+    SELECT ?cluster ?ref_kb_link (max(?link_cv) as ?higest_cv)
+    WHERE { 
+        %s
+            ?membership aida:cluster ?cluster .
+            ?membership aida:clusterMember ?member .
+        %s
+        ?member a aida:Entity .
+        ?member aida:link ?ref_kb_link .
+        ?ref_kb_link a aida:LinkAssertion .
+        ?ref_kb_link aida:linkTarget ?link_target .
+        ?ref_kb_link aida:confidence ?link_confidence .
+        ?link_confidence aida:confidenceValue ?link_cv .
+    } group by ?cluster ?ref_kb_link
+}
+''' % (open_clause, close_clause, open_clause, close_clause)
 
 
 def proto_name(graph):
@@ -255,6 +419,26 @@ where {
 ''' % (open_clause, close_clause, open_clause, close_clause)
 
 
+def proto_inf_just(graph):
+    open_clause = close_clause = ''
+    if graph:
+        open_clause = 'GRAPH <%s> {' % graph
+        close_clause = '}'
+    return '''
+insert { 
+    %s
+    ?prototype aida:informativeJustification ?informative_justification.
+    %s
+} where {
+    %s
+    ?cluster aida:prototype ?prototype .
+    %s
+    bind(URI(REPLACE(STR(?prototype), '-prototype.*', '')) as ?e) .
+    ?e aida:informativeJustification ?informative_justification .
+}
+''' % (open_clause, close_clause, open_clause, close_clause)
+
+
 def proto_type_assertion_justi(graph):
     open_clause = close_clause = ''
     if graph:
@@ -288,20 +472,20 @@ def super_edge(graph):
     return '''
 insert { 
     %s
-    [] a rdf:Statement ;
+    ?type_assertion a rdf:Statement ;
        rdf:subject ?evtRelProto ;
        rdf:predicate ?p ;
        rdf:object ?entProto ;
        aida:confidence [
             a aida:Confidence ;
             aida:confidenceValue ?cnt ;
-            aida:system <http://www.isi.edu>
-       ]
+            aida:system <http://www.isi.edu/TA2>
+       ] .
     %s
 }
 where {
   {
-      select ?evtRelProto ?p ?entProto ((1 - (1/(2*count(*)))) as ?cnt)
+      select ?evtRelProto ?p ?entProto (xsd:double(1 - (1/(2*count(*)))) as ?cnt)
       where {
           %s
               ?evtRelC aida:prototype ?evtRelProto .
@@ -316,9 +500,9 @@ where {
                  rdf:object ?ent .
       } groupby ?evtRelProto ?p ?entProto orderby desc(?cnt)
   }
-  BIND( URI(CONCAT(STR(?p), "-%s")) AS ?type_assertion )
+  BIND( URI(CONCAT('https://www.isi.edu/gaia/assertions/', STR(RAND()*1000000)))  as ?type_assertion)
 }
-''' % (open_clause, close_clause, open_clause, close_clause, uri_suffix)
+''' % (open_clause, close_clause, open_clause, close_clause)
 
 
 def super_edge_justif(graph):

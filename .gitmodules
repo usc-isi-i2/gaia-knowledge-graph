@@ -1,6 +1,6 @@
 [submodule "AIDA-Interchange-Format"]
 	path = AIDA-Interchange-Format
-	url = https://github.com/fatestigma/AIDA-Interchange-Format.git
+	url = https://github.com/shinyichen/AIDA-Interchange-Format.git
 [submodule "gaia-clustering"]
 	path = gaia-clustering
 	url = https://github.com/usc-isi-i2/gaia-clustering.git
