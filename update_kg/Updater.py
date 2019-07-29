@@ -580,3 +580,19 @@ class Updater(object):
     @staticmethod
     def random_str(length=32):
         return ''.join([random.choice(string.ascii_letters + string.digits) for _ in range(length)])
+
+    def run_all(self,
+                delete_existing_clusters=False,
+                entity_clusters='entity-clusters.jl',
+                event_clusters='event-clusters.jl',
+                relation_clusters='relation-clusters.jl'):
+        if delete_existing_clusters:
+            self.run_delete_ori()
+        self.run_system()
+        self.run_clusters(entity_clusters=entity_clusters,
+                          event_clusters=event_clusters,
+                          relation_clusters=relation_clusters)
+        self.run_insert_proto()
+        self.run_super_edge()
+        self.run_inf_just_nt()
+        self.run_links_nt()
