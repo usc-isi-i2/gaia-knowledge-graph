@@ -54,7 +54,7 @@ def divide_list_chunks(l, n):
 
 class Updater(object):
     def __init__(self, endpoint_src, endpoint_dst, name, outdir, graph, has_jl=False):
-        self.logger = setup_custom_logger('updater', name + '-log.txt')
+        self.logger = setup_custom_logger('updater', outdir + '/' + name + '-log.txt')
         if '3030' in endpoint_src:
             self.select_src = SPARQLWrapper(endpoint_src.rstrip('/') + '/query')
             self.update_src = SPARQLWrapper(endpoint_src.rstrip('/') + '/update')
